@@ -1,6 +1,9 @@
 # HTMLはindex.html以外すべて除外
 *.html
 !index.html
+!kekka.html
+!data.html
+!test.html
 *.txt
 
 # データ類
