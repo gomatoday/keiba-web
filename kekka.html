@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>結果入力 v4.7</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>南関東競馬分析 v4.7</h1>
+  <nav><a href="index.html">分析</a><a href="kekka.html" class="on">結果入力</a><a href="data.html">記録</a><a href="test.html">一致テスト</a></nav>
+</header>
+<div id="bkstat" class="bkstat"></div>
+<main>
+  <section class="card">
+    <h2>1. 分析出力を選ぶ</h2>
+    <label><input type="radio" name="src" value="store" id="srcstore" checked> 記録から選ぶ（分析済み・結果未登録のレース）
+      <select id="pick"><option value="">-</option></select></label>
+    <label><input type="radio" name="src" value="file" id="srcfile"> 保存した分析出力ファイル（〜分析出力.txt）を選ぶ
+      <input type="file" id="bfile" accept=".txt,text/plain"></label>
+    <p id="raceinfo" class="hint"></p>
+  </section>
+
+  <section class="card">
+    <h2>2. レース結果</h2>
+    <div id="rows"></div>
+    <button id="addrow" class="sub" type="button">同着の組を追加</button>
+    <p class="hint">払戻は三連複の100円あたりの金額。同着で三連複の組が複数あるときは「同着の組を追加」で行を増やします。</p>
+    <button id="run" disabled>結果登録</button>
+    <p id="status" class="status">準備中…</p>
+  </section>
+
+  <section class="card hidden" id="summary"></section>
+
+  <section class="card hidden" id="result">
+    <div class="tools"><button id="save" class="sub">考察出力を保存（レースID.txt）</button></div>
+    <pre class="code" id="out"></pre>
+  </section>
+</main>
+<footer id="footer"></footer>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.5/full/pyodide.js"></script>
+<script src="bundle.js"></script>
+<script src="common.js"></script>
+<script src="storage.js"></script>
+<script src="kekka.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>記録とバックアップ v4.7</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>南関東競馬分析 v4.7</h1>
+  <nav><a href="index.html">分析</a><a href="kekka.html">結果入力</a><a href="data.html" class="on">記録</a><a href="test.html">一致テスト</a></nav>
+</header>
+<div id="bkstat" class="bkstat"></div>
+<main>
+  <section class="card">
+    <h2>バックアップ</h2>
+    <p class="hint">ブラウザ内の記録は、閲覧履歴の削除などで消えることがあります。正本はバックアップファイルです。結果を登録したら、その日のうちにバックアップしてください。</p>
+    <button id="backup">全データをバックアップ</button>
+    <label>バックアップから復元（追加のみ。端末にある記録は上書きしません）<input type="file" id="restore" accept=".json"></label>
+    <p id="status" class="status">準備中…</p>
+  </section>
+
+  <section class="card">
+    <h2>記録の一覧</h2>
+    <p class="hint">判定（300レース）までは、Δや回収率の途中経過は表示しません（計画書■10）。各レースの考察は、レースIDを押すと表示されます。</p>
+    <div id="counts" class="hint"></div>
+    <div class="tools">
+      <button id="exportLedger" class="sub">LEDGER行を書き出す（PC版のaggregate用）</button>
+      <button id="checkLedger" class="sub" disabled>LEDGER行を照合する</button>
+    </div>
+    <div class="tblwrap"><table id="list"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>集計（300レースの判定）</h2>
+    <p class="hint">考察計算v4.7.pyのaggregateをそのまま実行します。対象が300レースに達するまでは、件数と品質の表だけが出ます（Δ・回収率は計算も表示もしません）。判定は、300以上に達した時点で1回だけ行います。</p>
+    <label>開始日（運用メモ■16に記録した場合だけ入力。例: 20261110）<input type="text" id="study" inputmode="numeric" maxlength="8" style="width:8em"></label>
+    <button id="agg" disabled>集計する</button>
+    <div class="hidden" id="aggbox">
+      <div class="tools"><button id="aggsave" class="sub">集計の出力を保存</button></div>
+      <div id="aggout"></div>
+    </div>
+  </section>
+
+  <section class="card hidden" id="detail">
+    <div class="tools"><button id="closeDetail" class="sub">閉じる</button></div>
+    <h2 id="dtitle"></h2>
+    <pre class="code" id="dbody"></pre>
+  </section>
+</main>
+<footer id="footer"></footer>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.5/full/pyodide.js"></script>
+<script src="bundle.js"></script>
+<script src="common.js"></script>
+<script src="storage.js"></script>
+<script src="data.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一致テスト v4.7</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>南関東競馬分析 v4.7</h1>
+  <nav><a href="index.html">分析</a><a href="kekka.html">結果入力</a><a href="data.html">記録</a><a href="test.html" class="on">一致テスト</a></nav>
+</header>
+<main>
+  <section class="card">
+    <h2>Python版との一致テスト（Phase 1の合格判定）</h2>
+    <p class="hint">正解データ（golden_v4.7）の expected フォルダのJSONと、input フォルダの出走表HTMLを、それぞれ全部選んでください。レースIDで対応づけます。</p>
+    <label>正解データ（expected/*.json）<input type="file" id="gold" multiple accept=".json"></label>
+    <label>出走表HTML（input/*.txt）<input type="file" id="inp" multiple accept=".txt,.html,.htm"></label>
+    <button id="run" disabled>テスト開始</button>
+    <p id="status" class="status">準備中…</p>
+    <p class="hint">合格の基準（計画書■17）: 出力全文とREC行が完全一致、丸め前の内部値（softmax・三連複確率・z得点）が相対誤差1e-9以内。1レース数秒かかります。テスト中は画面が固まることがあります。</p>
+  </section>
+  <section class="card">
+    <h2>考察（結果入力）の一致テスト（Phase 2の合格判定）</h2>
+    <p class="hint">正解データ（golden_v4.7）の expected_kosatsu フォルダのJSONを全部選んでください（分析出力と架空の結果が入っています）。合格の基準: 考察出力の全文（LEDGER行を含む）が完全一致。</p>
+    <label>考察の正解データ（expected_kosatsu/*.json）<input type="file" id="goldk" multiple accept=".json"></label>
+    <button id="runk" disabled>考察のテスト開始</button>
+  </section>
+  <section class="card">
+    <h2>記録とバックアップのテスト（Phase 3の合格判定）</h2>
+    <p class="hint">考察の正解データ（expected_kosatsu/*.json）を全部選んでください。テスト専用の記録（keiba_v47_test）を使い、本番の記録には触れません。
+      確認すること: 記録→二重登録の拒否→バックアップ→全消去→復元で全件が1文字も変わらないこと、LEDGER行の照合、壊れたバックアップの拒否。</p>
+    <label>考察の正解データ（expected_kosatsu/*.json）<input type="file" id="gold3" multiple accept=".json"></label>
+    <button id="run3" disabled>記録のテスト開始</button>
+  </section>
+  <section class="card">
+    <h2>集計の一致テスト（Phase 4の合格判定）</h2>
+    <p class="hint">正解データ（golden_v4.7）の expected_aggregate フォルダのJSONを全部選んでください（テスト専用の架空データ。330レースで判定あり・250レースと120レースで品質のみ）。合格の基準: aggregateの出力全文が完全一致。1件に1分ほどかかることがあります。</p>
+    <label>集計の正解データ（expected_aggregate/*.json）<input type="file" id="golda" multiple accept=".json"></label>
+    <button id="runa" disabled>集計のテスト開始</button>
+  </section>
+  <section class="card hidden" id="resbox">
+    <div id="verdict"></div>
+    <div class="tools"><button id="save" class="sub">結果を保存（一致テスト結果.json）</button></div>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </section>
+</main>
+<footer id="footer"></footer>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.5/full/pyodide.js"></script>
+<script src="bundle.js"></script>
+<script src="common.js"></script>
+<script src="storage.js"></script>
+<script src="test.js"></script>
+</body>
+</html>
