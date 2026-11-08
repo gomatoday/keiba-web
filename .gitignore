@@ -1,0 +1,17 @@
+# HTMLはindex.html以外すべて除外
+*.html
+!index.html
+*.txt
+
+# データ類
+*rec*
+*REC*
+*ledger*
+*LEDGER*
+*.json
+!version.json
+*.zip
+data/
+golden/
+golden_v4.7/
+backup/
