@@ -47,6 +47,11 @@
     <label>結果ページ（results/*.txt）<input type="file" id="inpr" multiple accept=".txt,.html,.htm"></label>
     <button id="runr" disabled>読み取りのテスト開始</button>
   </section>
+  <section class="card">
+    <h2>まとめて分析のテスト</h2>
+    <p class="hint">一番上のテストと同じく、expected のJSONと input のファイルを全部選んでください（上の欄で選んだものを使います）。テスト専用の記録を使い、まとめて分析した出力と記録が、正解データと1文字も違わないことを確かめます。</p>
+    <button id="runb" disabled>まとめて分析のテスト開始</button>
+  </section>
   <section class="card hidden" id="resbox">
     <div id="verdict"></div>
     <div class="tools"><button id="save" class="sub">結果を保存（一致テスト結果.json）</button></div>
@@ -58,6 +63,7 @@
 <script src="bundle.js"></script>
 <script src="common.js"></script>
 <script src="storage.js"></script>
+<script src="bulk.js"></script>
 <script src="test.js"></script>
 </body>
 </html>

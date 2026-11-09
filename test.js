@@ -230,8 +230,48 @@ async function runResultTests() {
   $("runr").disabled = false;
 }
 $("runr").addEventListener("click", runResultTests);
+
+async function runBulkTests() {
+  const golds = new Map();
+  for (const f of Array.from($("gold").files)) { const id = idOf(f.name); if (id) golds.set(id, f); }
+  const inps = Array.from($("inp").files).filter((f) => idOf(f.name)).sort((a, b) => a.name.localeCompare(b.name));
+  if (!golds.size || !inps.length) { setStatus("一番上の欄で、expected のJSONと input のファイルを選んでください。", "err"); return; }
+  $("runb").disabled = true;
+  await storeInit("keiba_v47_test");
+  await storeClear();
+  const tbl = $("tbl");
+  tbl.innerHTML = "<tr><th>レースID</th><th>判定</th><th>状態</th><th>差の内容</th></tr>";
+  $("resbox").classList.remove("hidden");
+  const rows = await bulkAnalyze(inps, (k, n) => setStatus("まとめて分析のテスト中 " + k + "/" + n + "…"), { keepStdout: true });
+  const out = [];
+  for (const r of rows) {
+    const id = idOf(r.file);
+    let ok = false, note = "";
+    const gf = golds.get(id);
+    if (!gf) note = "正解データがありません";
+    else {
+      const g = JSON.parse(await gf.text());
+      const st = await storeGet(id);
+      if (r.stdout !== g.stdout) note = "出力が正解データと違います";
+      else if (!st || st.bunseki_stdout !== g.stdout) note = "記録が正解データと違います";
+      else if (r.status !== "記録しました") note = r.status;
+      else ok = true;
+    }
+    out.push({ race_id: id, ok, note });
+    tbl.insertAdjacentHTML("beforeend", "<tr class='" + (ok ? "pass" : "fail") + "'><td>" + escapeHtml(id) + "</td><td>" + (ok ? "一致" : "不一致") + "</td><td>" + escapeHtml(r.status) + "</td><td>" + escapeHtml(note) + "</td></tr>");
+  }
+  await storeClear();
+  const pass = out.filter((r) => r.ok).length;
+  const allOk = pass === out.length;
+  report = { test: "bulk_analyze", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: out.length, pass: pass, all_ok: allOk, results: out };
+  $("verdict").innerHTML = "<h2>" + (allOk ? "合格：まとめて分析" + out.length + "件が正解データと一致" : "不合格：" + (out.length - pass) + "件が不一致") + "</h2>";
+  $("verdict").className = allOk ? "ok" : "err";
+  setStatus("まとめて分析のテスト完了（一致 " + pass + "/" + out.length + "）。", allOk ? "ok" : "err");
+  $("runb").disabled = false;
+}
+$("runb").addEventListener("click", runBulkTests);
 $("save").addEventListener("click", () => {
-  if (report) downloadText(({ phase1_bunseki: "分析", phase2_kosatsu: "考察", phase3_store: "記録", phase4_aggregate: "集計", result_parse: "読み取り" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
+  if (report) downloadText(({ phase1_bunseki: "分析", phase2_kosatsu: "考察", phase3_store: "記録", phase4_aggregate: "集計", result_parse: "読み取り", bulk_analyze: "まとめて分析" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
 });
 
 keibaInit((m) => setStatus(m))
@@ -243,5 +283,6 @@ keibaInit((m) => setStatus(m))
     $("run3").disabled = false;
     $("runa").disabled = false;
     $("runr").disabled = false;
+    $("runb").disabled = false;
   })
   .catch((e) => setStatus("起動できません: " + e.message, "err"));

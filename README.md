@@ -4,6 +4,7 @@
 
 - index.html：分析画面
 - kekka.html：結果入力（Phase 2。考察計算v4.7.py の kosatsu をそのまま実行し、考察出力〈LEDGER行を含む〉を保存）
+- bulk.js：出走表のまとめて分析（1レースずつpredictを実行して記録）
 - data.html：記録とバックアップ（Phase 3。IndexedDBに1レース1件。全データのバックアップ・復元〈追加のみ〉、LEDGER行の書き出しと照合、集計〈aggregate。Phase 4〉）
 - storage.js：端末内の記録とバックアップの処理
 - test.html：Python版との一致テスト（分析＝Phase 1、考察＝Phase 2、記録＝Phase 3、集計＝Phase 4。正解データ golden_v4.7 を使う）

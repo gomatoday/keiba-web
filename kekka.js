@@ -183,6 +183,8 @@ $("rfiles").addEventListener("change", async () => {
   await new Promise((ok) => setTimeout(ok, 20));
   parsed = [];
   for (const f of files) {
+    setR("読み取り中 " + (parsed.length + 1) + "/" + files.length + " …");
+    await new Promise((ok) => setTimeout(ok, 5));
     let r;
     try {
       await keibaWriteFile("/work/result_page.html", f);
@@ -224,7 +226,7 @@ $("rreg").addEventListener("click", async () => {
   const msgs = [];
   for (const k of ks) {
     const r = parsed[k];
-    setR("登録中 " + r.race_id + " …");
+    setR("登録中 " + (ks.indexOf(k) + 1) + "/" + ks.length + "（" + r.race_id + "）…");
     await new Promise((ok) => setTimeout(ok, 20));
     try {
       const b = r.stored.bunseki_stdout;

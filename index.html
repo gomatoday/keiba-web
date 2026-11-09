@@ -13,6 +13,17 @@
 </header>
 <div id="bkstat" class="bkstat"></div>
 <main>
+  <section class="card">
+    <h2>出走表をまとめて分析</h2>
+    <p class="hint">出走表のファイル（.txt／.html）を何レース分でもまとめて選んでください。1レースずつ分析して記録します（1レース数秒。300レースで20〜30分ほど）。分析中はこのタブを閉じないでください。会場とR番号はHTMLから読み取ります。</p>
+    <label>出走表のファイル<input type="file" id="bfiles" multiple accept=".html,.htm,.txt,text/html,text/plain"></label>
+    <button id="brun" disabled>まとめて分析開始</button>
+    <p id="bstatus" class="status"></p>
+    <div class="tools hidden" id="btools"><button id="bsave" class="sub">一覧を保存（CSV）</button></div>
+    <div class="tblwrap"><table id="btbl"></table></div>
+  </section>
+
+  <h2 class="sechead">1レースずつ分析する場合</h2>
   <section class="card" id="input">
     <h2>出走表HTML</h2>
     <label class="file">
@@ -51,6 +62,7 @@
 <script src="bundle.js"></script>
 <script src="common.js"></script>
 <script src="storage.js"></script>
+<script src="bulk.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
