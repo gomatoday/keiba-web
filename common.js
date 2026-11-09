@@ -30,6 +30,7 @@ async function keibaInit(setStatus) {
   py.FS.mkdirTree("/work");
   py.FS.writeFile("/app/keiba_v47.py", b64ToBytes(BUNDLE.files["keiba_v47.py"]));
   py.FS.writeFile("/app/kosatsu_v47.py", b64ToBytes(BUNDLE.files["kosatsu_v47.py"]));
+  py.FS.writeFile("/app/result_html.py", b64ToBytes(BUNDLE.files["result_html.py"]));
   py.FS.writeFile("/app/runner.py", b64ToBytes(BUNDLE.files["runner.py"]));
   py.runPython("import sys\nif '/app' not in sys.path: sys.path.insert(0, '/app')\nimport runner");
   const info = JSON.parse(py.runPython("runner.load_engine()"));

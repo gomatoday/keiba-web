@@ -14,6 +14,16 @@
 <div id="bkstat" class="bkstat"></div>
 <main>
   <section class="card">
+    <h2>結果ページから登録（まとめて）</h2>
+    <p class="hint">nankankeiba.comの「成績・払戻金」ページを保存したファイル（.html／.txt）を、何レース分でもまとめて選んでください。着順と三連複の払戻を読み取り、分析済み・結果未登録のレースと突き合わせます。登録の前に一覧で確認できます。</p>
+    <label>結果ページのファイル<input type="file" id="rfiles" multiple accept=".html,.htm,.txt"></label>
+    <div class="tblwrap"><table id="rtbl"></table></div>
+    <button id="rreg" class="hidden">チェックしたレースを登録</button>
+    <p id="rstatus" class="status"></p>
+  </section>
+
+  <h2 class="sechead">手で入力する場合</h2>
+  <section class="card">
     <h2>1. 分析出力を選ぶ</h2>
     <label><input type="radio" name="src" value="store" id="srcstore" checked> 記録から選ぶ（分析済み・結果未登録のレース）
       <select id="pick"><option value="">-</option></select></label>

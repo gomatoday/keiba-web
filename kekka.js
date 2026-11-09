@@ -170,3 +170,76 @@ keibaInit((m) => setStatus(m))
     $("run").disabled = false;
   })
   .catch((e) => setStatus("起動できません: " + e.message, "err"));
+
+// ---------------- 結果ページから登録（まとめて） ----------------
+let parsed = [];
+function setR(msg, cls) { const s = $("rstatus"); s.textContent = msg; s.className = "status " + (cls || ""); }
+
+$("rfiles").addEventListener("change", async () => {
+  const files = Array.from($("rfiles").files);
+  if (!files.length) return;
+  if (!KEIBA.py) { setR("Pythonの準備ができてから選んでください。", "err"); return; }
+  setR("読み取り中…");
+  await new Promise((ok) => setTimeout(ok, 20));
+  parsed = [];
+  for (const f of files) {
+    let r;
+    try {
+      await keibaWriteFile("/work/result_page.html", f);
+      r = keibaCall("result_parse", "/work/result_page.html");
+    } catch (e) {
+      r = { errors: ["読み取り中のエラー: " + e.message] };
+    }
+    r.file = f.name;
+    let st = null;
+    if (!r.errors.length) {
+      st = STORE.db ? await storeGet(r.race_id) : null;
+      if (!st) r.errors.push("このレースは分析の記録にありません（先に分析してください）");
+      else if (st.kosatsu_stdout) r.errors.push("結果登録済みです");
+    }
+    r.ok = !r.errors.length;
+    r.stored = st;
+    parsed.push(r);
+  }
+  parsed.sort((a, b) => String(a.race_id).localeCompare(String(b.race_id)));
+  let h = "<tr><th>登録</th><th>ファイル</th><th>レースID</th><th>会場・R</th><th>着順（1-2-3）</th><th>三連複の払戻</th><th>状態</th></tr>";
+  parsed.forEach((r, k) => {
+    const trio = (r.trio || []).map((t) => t.combo.join("-") + " " + t.pay.toLocaleString() + "円").join(" ／ ");
+    const ord = (r.trio || []).map((t) => (t.order || []).join("-")).join(" ／ ");
+    h += "<tr class='" + (r.ok ? "" : "fail") + "'><td>" + (r.ok ? "<input type='checkbox' class='rchk' data-k='" + k + "' checked>" : "") + "</td><td>" + escapeHtml(r.file) +
+      "</td><td>" + escapeHtml(r.race_id || "-") + "</td><td>" + escapeHtml((r.venue || "") + (r.rno ? r.rno + "R" : "")) + "</td><td>" + escapeHtml(ord || "-") +
+      "</td><td>" + escapeHtml(trio || "-") + "</td><td>" + escapeHtml(r.ok ? "登録できます" + (r.notes.length ? "（" + r.notes.join("、") + "）" : "") : r.errors.join("、")) + "</td></tr>";
+  });
+  $("rtbl").innerHTML = h;
+  const n = parsed.filter((r) => r.ok).length;
+  $("rreg").classList.toggle("hidden", n === 0);
+  setR("読み取りました: 登録できるもの " + n + "件／" + parsed.length + "件。着順と払戻を確認してから登録してください。", n ? "ok" : "err");
+});
+
+$("rreg").addEventListener("click", async () => {
+  const ks = Array.from(document.querySelectorAll(".rchk")).filter((c) => c.checked).map((c) => Number(c.dataset.k));
+  if (!ks.length) { setR("登録するレースにチェックを入れてください。", "err"); return; }
+  $("rreg").disabled = true;
+  let okN = 0;
+  const msgs = [];
+  for (const k of ks) {
+    const r = parsed[k];
+    setR("登録中 " + r.race_id + " …");
+    await new Promise((ok) => setTimeout(ok, 20));
+    try {
+      const b = r.stored.bunseki_stdout;
+      KEIBA.py.FS.writeFile("/work/分析出力.txt", new TextEncoder().encode(b));
+      const res = keibaCall("kosatsu", "/work/分析出力.txt", r.result);
+      if (res.rc !== 0) { msgs.push(r.race_id + ": 考察が停止（" + res.stdout.trim().split("\n").pop() + "）"); continue; }
+      const sv = await storeSaveKosatsu(b, r.result, res.stdout);
+      if (sv.saved) okN++; else msgs.push(r.race_id + ": " + sv.reason);
+    } catch (e) {
+      msgs.push(r.race_id + ": エラー " + e.message);
+    }
+  }
+  await showBkstat();
+  await loadPick();
+  setR("登録しました: " + okN + "件" + (msgs.length ? "。登録できなかったもの: " + msgs.join(" ／ ") : "。") + " 記録の画面でバックアップしてください。", msgs.length ? "err" : "ok");
+  $("rreg").classList.add("hidden");
+  $("rreg").disabled = false;
+});

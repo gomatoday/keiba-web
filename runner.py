@@ -224,3 +224,19 @@ def aggregate_check(golden_json):
                 break
     return json.dumps({"race_id": g["name"], "ok": same and rc == g["rc"], "rc_same": rc == g["rc"], "stdout_same": same,
                        "first_stdout_diff": first, "golden_code": g.get("kosatsu_code"), "golden_python": g.get("python")}, ensure_ascii=False)
+
+
+# ---------------- 結果ページの読み取り（入力の補助。考察の計算には関わらない） ----------------
+def result_parse(path):
+    import result_html
+    with open(path, "rb") as f:
+        b = f.read()
+    return json.dumps(result_html.parse_result_html(b, _eng.decode_html), ensure_ascii=False)
+
+
+def result_check(path, golden_json):
+    """結果ページの読み取りが、PC版Pythonでの読み取り（正解データ）と完全一致するか。"""
+    g = json.loads(golden_json)
+    r = json.loads(result_parse(path))
+    return json.dumps({"race_id": g["parse"].get("race_id"), "ok": r == g["parse"], "web": r.get("result"), "python": g["parse"].get("result"),
+                       "errors": r.get("errors")}, ensure_ascii=False)

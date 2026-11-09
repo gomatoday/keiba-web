@@ -40,6 +40,13 @@
     <label>集計の正解データ（expected_aggregate/*.json）<input type="file" id="golda" multiple accept=".json"></label>
     <button id="runa" disabled>集計のテスト開始</button>
   </section>
+  <section class="card">
+    <h2>結果ページの読み取りテスト</h2>
+    <p class="hint">正解データ（golden_v4.7）の expected_result のJSONと、results フォルダの結果ページを全部選んでください。合格の基準: 読み取った着順・払戻・レースIDがPC版と完全一致。</p>
+    <label>読み取りの正解データ（expected_result/*.json）<input type="file" id="goldr" multiple accept=".json"></label>
+    <label>結果ページ（results/*.txt）<input type="file" id="inpr" multiple accept=".txt,.html,.htm"></label>
+    <button id="runr" disabled>読み取りのテスト開始</button>
+  </section>
   <section class="card hidden" id="resbox">
     <div id="verdict"></div>
     <div class="tools"><button id="save" class="sub">結果を保存（一致テスト結果.json）</button></div>

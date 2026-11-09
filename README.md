@@ -9,6 +9,7 @@
 - test.html：Python版との一致テスト（分析＝Phase 1、考察＝Phase 2、記録＝Phase 3、集計＝Phase 4。正解データ golden_v4.7 を使う）
 - keiba_v47.py：計算エンジン（変更しない）
 - kosatsu_v47.py：考察計算（考察計算v4.7.py と同一ファイル。指紋 cea069919a98。変更しない）
+- result_html.py：結果ページ（成績・払戻金）から着順と三連複の払戻を読み取る入力の補助。考察の計算は持たない
 - runner.py：受け渡し役（予測ロジックを持たない）
 - build.py：keiba_v47.py・runner.py を bundle.js に埋め込み、version.json を作る（.pyを差し替えたら必ず実行）
 - Pyodide 0.29.5（Python 3.13）に固定

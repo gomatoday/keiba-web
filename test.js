@@ -198,8 +198,40 @@ async function runAggTests() {
   $("runa").disabled = false;
 }
 $("runa").addEventListener("click", runAggTests);
+
+async function runResultTests() {
+  const golds = Array.from($("goldr").files).sort((a, b) => a.name.localeCompare(b.name));
+  const inps = new Map(Array.from($("inpr").files).map((f) => [f.name, f]));
+  if (!golds.length || !inps.size) { setStatus("正解データと結果ページを両方選んでください。", "err"); return; }
+  $("runr").disabled = true;
+  const rows = [];
+  const tbl = $("tbl");
+  tbl.innerHTML = "<tr><th>レースID</th><th>判定</th><th>Web</th><th>Python</th></tr>";
+  $("resbox").classList.remove("hidden");
+  for (const gf of golds) {
+    const g = JSON.parse(await gf.text());
+    const f = inps.get(g.file);
+    let r;
+    if (!f) r = { race_id: g.parse.race_id, ok: false, web: "結果ページ " + g.file + " がありません" };
+    else {
+      try { await keibaWriteFile("/work/result_test.html", f); r = keibaCall("result_check", "/work/result_test.html", JSON.stringify(g)); }
+      catch (e) { r = { race_id: g.parse.race_id, ok: false, web: e.message }; }
+    }
+    rows.push(r);
+    tbl.insertAdjacentHTML("beforeend", "<tr class='" + (r.ok ? "pass" : "fail") + "'><td>" + escapeHtml(r.race_id) + "</td><td>" + (r.ok ? "一致" : "不一致") +
+      "</td><td>" + escapeHtml(r.web || "") + "</td><td>" + escapeHtml(r.python || "") + "</td></tr>");
+  }
+  const pass = rows.filter((r) => r.ok).length;
+  const allOk = pass === rows.length;
+  report = { test: "result_parse", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
+  $("verdict").innerHTML = "<h2>" + (allOk ? "合格：読み取り" + rows.length + "件がPython版と一致" : "不合格：" + (rows.length - pass) + "件が不一致") + "</h2>";
+  $("verdict").className = allOk ? "ok" : "err";
+  setStatus("読み取りのテスト完了（一致 " + pass + "/" + rows.length + "）。", allOk ? "ok" : "err");
+  $("runr").disabled = false;
+}
+$("runr").addEventListener("click", runResultTests);
 $("save").addEventListener("click", () => {
-  if (report) downloadText(({ phase1_bunseki: "分析", phase2_kosatsu: "考察", phase3_store: "記録", phase4_aggregate: "集計" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
+  if (report) downloadText(({ phase1_bunseki: "分析", phase2_kosatsu: "考察", phase3_store: "記録", phase4_aggregate: "集計", result_parse: "読み取り" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
 });
 
 keibaInit((m) => setStatus(m))
@@ -210,5 +242,6 @@ keibaInit((m) => setStatus(m))
     $("runk").disabled = false;
     $("run3").disabled = false;
     $("runa").disabled = false;
+    $("runr").disabled = false;
   })
   .catch((e) => setStatus("起動できません: " + e.message, "err"));

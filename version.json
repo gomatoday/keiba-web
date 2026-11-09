@@ -5,7 +5,7 @@
  "engine_sha256_full": "7de64396912810185e0942a32c758e7eaed2e243f0fd710e5f830754abe4a96c",
  "code_k": "cea069919a98",
  "kosatsu_file": "kosatsu_v47.py（考察計算v4.7.py と同一内容）",
- "runner_sha256_full": "39aad9bbd3ab736cb0c84db8564eaa67b3f3cc8e666e9a7dfb34c863bff02131",
+ "runner_sha256_full": "73f01a7321f621c6a96e018dcc11f294db06c1b52bf752dac2cbab2583ac2d62",
  "pyodide": "0.29.5",
  "pyodide_url": "https://cdn.jsdelivr.net/pyodide/v0.29.5/full/",
  "python_minor": "3.13"

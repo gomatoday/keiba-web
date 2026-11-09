@@ -25,7 +25,7 @@ version = {
     "pyodide_url": "https://cdn.jsdelivr.net/pyodide/v%s/full/" % PYODIDE,
     "python_minor": "3.13",
 }
-files = {n: base64.b64encode(open(os.path.join(HERE, n), "rb").read()).decode("ascii") for n in ("keiba_v47.py", "kosatsu_v47.py", "runner.py")}
+files = {n: base64.b64encode(open(os.path.join(HERE, n), "rb").read()).decode("ascii") for n in ("keiba_v47.py", "kosatsu_v47.py", "runner.py", "result_html.py")}
 json.dump(version, open(os.path.join(HERE, "version.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 with open(os.path.join(HERE, "bundle.js"), "w", encoding="utf-8") as f:
     f.write("// build.py が自動で作るファイル。手で編集しない。\n")
