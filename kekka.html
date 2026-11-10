@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>結果入力 v4.8</title>
+<title>結果入力 v4.9</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>南関東競馬分析 v4.8</h1>
+  <h1>南関東競馬分析 v4.9</h1>
   <nav><a href="index.html">分析</a><a href="kekka.html" class="on">結果入力</a><a href="data.html">記録</a><a href="test.html">一致テスト</a></nav>
 </header>
 <div id="bkstat" class="bkstat"></div>
 <main>
   <section class="card">
     <h2>結果ページから登録（まとめて）</h2>
-    <p class="hint">nankankeiba.comの「成績・払戻金」ページを保存したファイル（.html／.txt）を、何レース分でもまとめて選んでください。着順・全券種の払戻（単勝・複勝・馬連・ワイド・馬単・三連複・三連単）・全馬の人気を読み取り、分析済み・結果未登録のレースと突き合わせます。登録の前に一覧で確認できます。結果の登録はこちらが原則です。</p>
+    <p class="hint">nankankeiba.comの「成績・払戻金」ページを保存したファイル（.html／.txt）を、何レース分でもまとめて選んでください。着順・券種の払戻（単勝・複勝・ワイド・馬連・三連複）・全馬の人気と着順を読み取り、分析済み・結果未登録のレースと突き合わせます。登録の前に一覧で確認できます。結果の登録はこちらが原則です。</p>
     <label>結果ページのファイル<input type="file" id="rfiles" multiple accept=".html,.htm,.txt"></label>
     <div class="tblwrap"><table id="rtbl"></table></div>
     <button id="rreg" class="hidden">チェックしたレースを登録</button>
@@ -35,7 +35,7 @@
   <section class="card">
     <h2>2. レース結果</h2>
     <div id="rows"></div>
-    <p class="hint">同着のあるレースは手入力では登録できません（結果ページから登録してください）。手入力のレースは、全券種の払戻がそろっていれば4案の回収率の集計にも入ります。人気は記録されません。</p>
+    <p class="hint">同着のあるレースは手入力では登録できません（結果ページから登録してください）。手入力のレースは、単勝・複勝の払戻がそろっていれば3案の回収率の集計にも入ります。人気と着順は記録されません。</p>
     <button id="run" disabled>結果登録</button>
     <p id="status" class="status">準備中…</p>
   </section>

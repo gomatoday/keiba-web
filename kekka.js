@@ -1,4 +1,4 @@
-// 結果入力画面：分析出力（REC行を含む）と結果（RES行）を、考察計算v4.8.py の kosatsu にそのまま渡す。
+// 結果入力画面：分析出力（REC行を含む）と結果（RES行）を、考察計算v4.9.py の kosatsu にそのまま渡す。
 // REC行は書き写さず、分析出力の全文をファイルとして渡す（考察ルール第3条1）。
 // 結果の登録は結果ページ（成績・払戻金）からが原則。手入力は例外（同着のあるレースは結果ページから登録する）。
 "use strict";
@@ -8,7 +8,7 @@ let bunseki = null;      // 分析出力の全文
 let nums = [];
 let heads = 0;
 let lastRes = null;
-const TYPES = ["単勝", "複勝", "馬連", "ワイド", "馬単", "三連複", "三連単"];
+const TYPES = ["単勝", "複勝", "ワイド", "馬連", "三連複"];
 
 function setStatus(msg, cls) {
   const s = $("status");
@@ -68,9 +68,9 @@ function buildPays() {
   const s2 = (x, y) => [x, y].sort((u, v) => u - v).join("-");
   const place = heads <= 7 ? [a, b] : [a, b, c];
   const items = [["単勝", String(a)]].concat(place.map((u) => ["複勝", String(u)]),
-    [["馬連", s2(a, b)]], [[a, b], [a, c], [b, c]].map(([x, y]) => ["ワイド", s2(x, y)]),
-    [["馬単", a + "-" + b], ["三連複", [a, b, c].sort((u, v) => u - v).join("-")], ["三連単", a + "-" + b + "-" + c]]);
-  $("payrows").innerHTML = "<p class='hint'>払戻は100円あたりの金額。三連複は必須。ほかの券種を空欄にすると、そのレースは4案の回収率の集計から外れます（主評価には使います）。</p>" +
+    [[a, b], [a, c], [b, c]].map(([x, y]) => ["ワイド", s2(x, y)]), [["馬連", s2(a, b)]],
+    [["三連複", [a, b, c].sort((u, v) => u - v).join("-")]]);
+  $("payrows").innerHTML = "<p class='hint'>払戻は100円あたりの金額。三連複は必須（モデルの判定に使う）。単勝・複勝を空欄にすると、そのレースは3案の回収率の集計から外れます。ワイド・馬連は記録用です。</p>" +
     items.map(([t, k]) => payInput(t, k)).join("");
 }
 
@@ -87,7 +87,7 @@ function resultText() {
   }
   if (!pays["三連複"].length) throw new Error("三連複の払戻は必須です。");
   const rec = recOf(bunseki);
-  return "RES " + JSON.stringify({ race_id: rec.race_id, orders: [p], pays: pays, source: "手入力" });
+  return "RES " + JSON.stringify({ race_id: rec.race_id, orders: [p], pays: pays, source: "手入力", pop: null, finish: null });
 }
 
 function showSummary(led) {
@@ -102,7 +102,7 @@ function showSummary(led) {
   }
   let h = "<h2>結果の概要</h2><dl class='sum'>";
   for (const [k, v] of items) h += "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>";
-  box.innerHTML = h + "</dl><p class='hint'>主評価の値・副評価などは下の考察出力のとおり。集計（300レースの判定）は記録の画面で行います。</p>";
+  box.innerHTML = h + "</dl><p class='hint'>モデルの判定の値・3案の結果は下の考察出力のとおり。集計（モデル300レース・案B400点の判定）は記録の画面で行います。</p>";
   box.classList.remove("hidden");
 }
 
@@ -215,7 +215,7 @@ $("rfiles").addEventListener("change", async () => {
     const nt = TYPES.filter((t) => ((res.pays || {})[t] || []).length).length;
     h += "<tr class='" + (r.ok ? "" : "fail") + "'><td>" + (r.ok ? "<input type='checkbox' class='rchk' data-k='" + k + "' checked>" : "") + "</td><td>" + escapeHtml(r.file) +
       "</td><td>" + escapeHtml(r.race_id || "-") + "</td><td>" + escapeHtml((r.venue || "") + (r.rno ? r.rno + "R" : "")) + "</td><td>" + escapeHtml(ord || "-") +
-      "</td><td>" + escapeHtml(trio || "-") + "</td><td>" + (r.res ? nt + "／7" : "-") + "</td><td>" +
+      "</td><td>" + escapeHtml(trio || "-") + "</td><td>" + (r.res ? nt + "／5" : "-") + "</td><td>" +
       escapeHtml(r.ok ? "登録できます" + ((r.notes || []).length ? "（" + r.notes.join("、") + "）" : "") : r.errors.join("、")) + "</td></tr>";
   });
   $("rtbl").innerHTML = h;
@@ -239,7 +239,7 @@ $("rreg").addEventListener("click", async () => {
       KEIBA.py.FS.writeFile("/work/分析出力.txt", new TextEncoder().encode(b));
       const res = keibaCall("kosatsu", "/work/分析出力.txt", r.res_text);
       if (res.rc !== 0) { msgs.push(r.race_id + ": 考察が停止（" + res.stdout.trim().split("\n").pop() + "）"); continue; }
-      const sv = await storeSaveKosatsu(b, r.res_text, res.stdout, r.pop);
+      const sv = await storeSaveKosatsu(b, r.res_text, res.stdout, null);
       if (sv.saved) okN++; else msgs.push(r.race_id + ": " + sv.reason);
     } catch (e) {
       msgs.push(r.race_id + ": エラー " + e.message);

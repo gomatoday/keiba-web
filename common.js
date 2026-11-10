@@ -1,5 +1,5 @@
 // 共通処理：Pyodideの起動、計算エンジンの読み込み、指紋の確認。
-// 計算はすべて keiba_v48.py（分析計算v4.8.py と同一）・kosatsu_v48.py（考察計算v4.8.py と同一）が行う。このファイルは受け渡しだけを行う。
+// 計算はすべて keiba_v49.py（分析計算v4.9.py と同一）・kosatsu_v49.py（考察計算v4.9.py と同一）が行う。このファイルは受け渡しだけを行う。
 "use strict";
 
 const KEIBA = {
@@ -31,7 +31,7 @@ async function keibaInit(setStatus) {
   for (const name of Object.keys(BUNDLE.files)) py.FS.writeFile("/app/" + name, b64ToBytes(BUNDLE.files[name]));
   py.runPython("import sys\nif '/app' not in sys.path: sys.path.insert(0, '/app')\nimport runner");
   const info = JSON.parse(py.runPython("runner.load_engine()"));
-  const names = { code: "分析計算", code_k: "考察計算", code_m: "v48_model", code_p: "係数", code_a47: "分析計算v4.7", code_f: "候補抽出" };
+  const names = { code: "分析計算", code_k: "考察計算", code_m: "v49_model", code_p: "係数", code_a47: "分析計算v4.7", code_f: "候補抽出", code_m48: "比較用 v48_model", code_p48: "比較用 v4.8の係数" };
   for (const k of Object.keys(names)) {
     if (info[k] !== V[k]) throw new Error(names[k] + "の指紋が違います（実行=" + info[k] + "、正本=" + V[k] + "）。使用を中止してください。");
   }

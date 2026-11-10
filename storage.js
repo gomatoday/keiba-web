@@ -1,13 +1,13 @@
-// 端末内の記録（IndexedDB）とバックアップ（v4.8）。v4.7 の記録（keiba_v47）とは別の保存場所を使い、v4.7 の記録には触れない。
+// 端末内の記録（IndexedDB）とバックアップ（v4.9）。v4.8 の記録（keiba_v48）・v4.7 の記録（keiba_v47）とは別の保存場所を使い、それらには触れない。
 // 記録は1レース1件。分析出力と考察出力の全文をそのまま保存する（数値を書き換えない・作り直さない）。
 // 正本はバックアップファイル。ブラウザ内の記録は消えることがあるため、定期的にバックアップする。
 "use strict";
 
 const STORE = {
-  dbName: "keiba_v48",
+  dbName: "keiba_v49",
   db: null,
 };
-const BACKUP_FORMAT = "keiba-v4.8-backup";
+const BACKUP_FORMAT = "keiba-v4.9-backup";
 const BACKUP_FORMAT_VER = 1;
 
 function idbOpen(name) {
@@ -82,7 +82,7 @@ async function storeSaveAnalysis(bunsekiStdout) {
   return { saved: true };
 }
 
-// 結果（考察出力）を記録する。すでに結果がある場合は記録しない。result は考察計算に渡した RES の1行、pop は結果ページから読んだ全馬の人気（手入力では null）。
+// 結果（考察出力）を記録する。すでに結果がある場合は記録しない。result は考察計算に渡した RES の1行（v4.9 では全馬の人気と着順も RES に入る）。pop は使わない（互換のため残す）。
 async function storeSaveKosatsu(bunsekiStdout, result, kosatsuStdout, pop) {
   const led = recFromText(kosatsuStdout, "LEDGER");
   if (!led) return { saved: false, reason: "LEDGER行がないため記録しません" };
@@ -151,7 +151,7 @@ async function storeRestore(obj) {
 function backupFileName() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
-  return "keiba_v4.8_backup_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + ".json";
+  return "keiba_v4.9_backup_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + ".json";
 }
 
 async function storeBackupDownload() {

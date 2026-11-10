@@ -1,4 +1,4 @@
-// 分析画面：HTMLを読み込み、keiba_v48.py の predict を実行して、出力をそのまま表示する。
+// 分析画面：HTMLを読み込み、keiba_v49.py の predict を実行して、出力をそのまま表示する。
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -37,10 +37,9 @@ function showSummary(res) {
     ["距離", rec.dist + "m"],
     ["頭数", rec.heads + "頭"],
     ["分析モード", rec.mode],
-    ["案1", plan("案1")],
-    ["案2", plan("案2")],
-    ["案3", plan("案3")],
-    ["案4（三連複）", plan("案4")],
+    ["案A（予測1位の単勝）", plan("案A")],
+    ["案B（複勝 期待値0.9以上）", plan("案B")],
+    ["案C（予測1位の複勝）", plan("案C")],
   ];
   let h = "<h2>概要</h2><dl class='sum'>";
   for (const [k, v] of items) h += "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>";

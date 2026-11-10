@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Web版の受け渡し役（Pyodide上で動く）。計算はすべて keiba_v48.py（分析計算v4.8.py と同一）・kosatsu_v48.py（考察計算v4.8.py と同一）が行う。
-keiba_v48.py は、同じ場所の keiba_v47.py（分析計算v4.7.py と同一）・feat_extract.py（候補抽出.py と同一）・v48_model.py・v48_params.json を読み込む。
+"""Web版の受け渡し役（Pyodide上で動く）。計算はすべて keiba_v49.py（分析計算v4.9.py と同一）・kosatsu_v49.py（考察計算v4.9.py と同一）が行う。
+keiba_v49.py は、同じ場所の keiba_v47.py（分析計算v4.7.py と同一）・feat_extract.py（候補抽出.py と同一）・v49_model.py・v49_params.json・v48_model.py・v48_params.json を読み込む。
 このファイルは、ファイルの受け渡し・標準出力の取り込み・正解データとの比較だけを行い、予測ロジックを持たない。"""
 import io, json, re, contextlib, importlib.util, sys
 
 APP = "/app"
-_eng = None     # keiba_v48
-_kos = None     # kosatsu_v48
+_eng = None     # keiba_v49
+_kos = None     # kosatsu_v49
 
 
 def _load(name):
@@ -17,12 +17,12 @@ def _load(name):
 
 
 def load_engine():
-    """keiba_v48.py・kosatsu_v48.py を読み込み、指紋とlxmlの有無を返す。lxmlが無いとPC版と解析器が変わるため、呼び出し側で停止する。"""
+    """keiba_v49.py・kosatsu_v49.py を読み込み、指紋とlxmlの有無を返す。lxmlが無いとPC版と解析器が変わるため、呼び出し側で停止する。"""
     global _eng, _kos
     if APP not in sys.path:
         sys.path.insert(0, APP)
-    _eng = _load("keiba_v48")
-    _kos = _load("kosatsu_v48")
+    _eng = _load("keiba_v49")
+    _kos = _load("kosatsu_v49")
     try:
         import lxml  # noqa: F401
         from bs4 import BeautifulSoup
@@ -31,7 +31,7 @@ def load_engine():
     except Exception:
         lx = False
     fp = _eng.fingerprints()
-    return json.dumps({"code": fp["code"], "code_m": fp["code_m"], "code_p": fp["code_p"], "code_a47": fp["code_a47"], "code_f": fp["code_f"],
+    return json.dumps({"code": fp["code"], "code_m": fp["code_m"], "code_p": fp["code_p"], "code_a47": fp["code_a47"], "code_f": fp["code_f"], "code_m48": fp["code_m48"], "code_p48": fp["code_p48"],
                        "version": _eng.VERSION, "lxml": lx, "code_k": _kos.code_sha(), "version_k": _kos.RULE_VERSION,
                        "python": sys.version.split()[0]})
 
@@ -74,7 +74,7 @@ def golden_check(html_path, golden_json):
                        "first_stdout_diff": None if same else _first_diff(out, g["stdout"]), "golden_python": g.get("python")}, ensure_ascii=False)
 
 
-# ---------------- 結果の考察（考察計算v4.8.py の kosatsu をそのまま実行） ----------------
+# ---------------- 結果の考察（考察計算v4.9.py の kosatsu をそのまま実行） ----------------
 def _run_kosatsu(bunseki_path, res_text):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -106,7 +106,7 @@ def kosatsu_check(golden_json):
                        "golden_python": g.get("python")}, ensure_ascii=False)
 
 
-# ---------------- 記録のLEDGER行の照合（考察計算v4.8.py の read_ledger をそのまま使う） ----------------
+# ---------------- 記録のLEDGER行の照合（考察計算v4.9.py の read_ledger をそのまま使う） ----------------
 def ledger_check(text):
     p = "/work/ledger_check.txt"
     with open(p, "w", encoding="utf-8") as f:
@@ -118,7 +118,7 @@ def ledger_check(text):
     return json.dumps({"ok": True, "n": len(L)}, ensure_ascii=False)
 
 
-# ---------------- 集計（考察計算v4.8.py の aggregate をそのまま実行） ----------------
+# ---------------- 集計（考察計算v4.9.py の aggregate をそのまま実行） ----------------
 def _run_aggregate(text):
     p = "/work/aggregate_input.txt"
     with open(p, "w", encoding="utf-8") as f:
@@ -147,12 +147,12 @@ def aggregate_check(golden_json):
 
 # ---------------- 結果ページの読み取り（入力の補助。考察の計算には関わらない） ----------------
 def result_parse(path):
-    """result_v48.py で着順・全券種の払戻・全馬の人気を読む。res_text は考察計算に渡す "RES {...}" の1行。"""
-    import result_html, pop_html, result_v48
+    """result_v49.py で着順・券種の払戻・全馬の人気と着順を読む。res_text は考察計算に渡す "RES {...}" の1行。"""
+    import result_html, pop_html, result_v49
     with open(path, "rb") as f:
         b = f.read()
-    r = result_v48.parse(b, _eng.E47.decode_html, result_html, pop_html)
-    r["res_text"] = result_v48.res_string(r["res"]) if r["res"] else None
+    r = result_v49.parse(b, _eng.E47.decode_html, result_html, pop_html)
+    r["res_text"] = result_v49.res_string(r["res"]) if r["res"] else None
     return json.dumps(r, ensure_ascii=False)
 
 

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""bundle.js と version.json を作る。計算に使う .py と係数（v48_params.json）を、1バイトも変えずにbase64で埋め込む
+"""bundle.js と version.json を作る。計算に使う .py と係数（v49_params.json・v48_params.json）を、1バイトも変えずにbase64で埋め込む
 （ブラウザで index.html を直接開いても動くようにするため）。指紋は分析計算・考察計算と同じ式で計算する。
 使い方: python build.py"""
 import base64, json, hashlib, re, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PYODIDE = "0.29.5"
-FILES = ("keiba_v48.py", "kosatsu_v48.py", "v48_model.py", "v48_params.json", "keiba_v47.py", "feat_extract.py",
-         "result_html.py", "pop_html.py", "result_v48.py", "runner.py")
+FILES = ("keiba_v49.py", "kosatsu_v49.py", "v49_model.py", "v49_params.json", "v48_model.py", "v48_params.json", "keiba_v47.py", "feat_extract.py",
+         "result_html.py", "pop_html.py", "result_v49.py", "runner.py")
 
 
 def code_sha(name):
@@ -19,15 +19,17 @@ def full_sha(name):
 
 
 version = {
-    "version": "v4.8",
-    "code": code_sha("keiba_v48.py"),
-    "engine_file": "keiba_v48.py（分析計算v4.8.py と同一内容）",
-    "code_k": code_sha("kosatsu_v48.py"),
-    "kosatsu_file": "kosatsu_v48.py（考察計算v4.8.py と同一内容）",
-    "code_m": code_sha("v48_model.py"),
-    "code_p": code_sha("v48_params.json"),
+    "version": "v4.9",
+    "code": code_sha("keiba_v49.py"),
+    "engine_file": "keiba_v49.py（分析計算v4.9.py と同一内容）",
+    "code_k": code_sha("kosatsu_v49.py"),
+    "kosatsu_file": "kosatsu_v49.py（考察計算v4.9.py と同一内容）",
+    "code_m": code_sha("v49_model.py"),
+    "code_p": code_sha("v49_params.json"),
     "code_a47": code_sha("keiba_v47.py"),
     "code_f": code_sha("feat_extract.py"),
+    "code_m48": code_sha("v48_model.py"),
+    "code_p48": code_sha("v48_params.json"),
     "full_sha256": {n: full_sha(n) for n in FILES},
     "pyodide": PYODIDE,
     "pyodide_url": "https://cdn.jsdelivr.net/pyodide/v%s/full/" % PYODIDE,
