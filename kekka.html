@@ -3,26 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>結果入力 v4.7</title>
+<title>結果入力 v4.8</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>南関東競馬分析 v4.7</h1>
+  <h1>南関東競馬分析 v4.8</h1>
   <nav><a href="index.html">分析</a><a href="kekka.html" class="on">結果入力</a><a href="data.html">記録</a><a href="test.html">一致テスト</a></nav>
 </header>
 <div id="bkstat" class="bkstat"></div>
 <main>
   <section class="card">
     <h2>結果ページから登録（まとめて）</h2>
-    <p class="hint">nankankeiba.comの「成績・払戻金」ページを保存したファイル（.html／.txt）を、何レース分でもまとめて選んでください。着順と三連複の払戻を読み取り、分析済み・結果未登録のレースと突き合わせます。登録の前に一覧で確認できます。</p>
+    <p class="hint">nankankeiba.comの「成績・払戻金」ページを保存したファイル（.html／.txt）を、何レース分でもまとめて選んでください。着順・全券種の払戻（単勝・複勝・馬連・ワイド・馬単・三連複・三連単）・全馬の人気を読み取り、分析済み・結果未登録のレースと突き合わせます。登録の前に一覧で確認できます。結果の登録はこちらが原則です。</p>
     <label>結果ページのファイル<input type="file" id="rfiles" multiple accept=".html,.htm,.txt"></label>
     <div class="tblwrap"><table id="rtbl"></table></div>
     <button id="rreg" class="hidden">チェックしたレースを登録</button>
     <p id="rstatus" class="status"></p>
   </section>
 
-  <h2 class="sechead">手で入力する場合</h2>
+  <h2 class="sechead">手で入力する場合（例外。結果ページを保存できなかったときだけ）</h2>
   <section class="card">
     <h2>1. 分析出力を選ぶ</h2>
     <label><input type="radio" name="src" value="store" id="srcstore" checked> 記録から選ぶ（分析済み・結果未登録のレース）
@@ -35,8 +35,7 @@
   <section class="card">
     <h2>2. レース結果</h2>
     <div id="rows"></div>
-    <button id="addrow" class="sub" type="button">同着の組を追加</button>
-    <p class="hint">払戻は三連複の100円あたりの金額。同着で三連複の組が複数あるときは「同着の組を追加」で行を増やします。</p>
+    <p class="hint">同着のあるレースは手入力では登録できません（結果ページから登録してください）。手入力のレースは、全券種の払戻がそろっていれば4案の回収率の集計にも入ります。人気は記録されません。</p>
     <button id="run" disabled>結果登録</button>
     <p id="status" class="status">準備中…</p>
   </section>

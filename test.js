@@ -24,7 +24,7 @@ async function runTests() {
   $("run").disabled = true;
   const rows = [];
   const tbl = $("tbl");
-  tbl.innerHTML = "<tr><th>レースID</th><th>判定</th><th>出力全文</th><th>REC</th><th>内部値（完全一致/件数）</th><th>最大相対誤差</th><th>差の内容</th></tr>";
+  tbl.innerHTML = "<tr><th>レースID</th><th>判定</th><th>出力全文</th><th>REC</th><th>終了コード</th><th>差の内容</th></tr>";
   $("resbox").classList.remove("hidden");
   for (let k = 0; k < golds.length; k++) {
     const g = golds[k];
@@ -44,16 +44,13 @@ async function runTests() {
       }
     }
     rows.push(r);
-    const diff = r.error || (r.first_stdout_diff ? (r.first_stdout_diff.line + "行目 Web: " + r.first_stdout_diff.web + " ／ Python: " + r.first_stdout_diff.python) : "") +
-      ((r.internals_diff || []).length ? " 内部値: " + r.internals_diff.join(" ; ") : "");
+    const diff = r.error || (r.first_stdout_diff ? (r.first_stdout_diff.line + "行目 Web: " + r.first_stdout_diff.web + " ／ Python: " + r.first_stdout_diff.python) : "");
     tbl.insertAdjacentHTML("beforeend", "<tr class='" + (r.ok ? "pass" : "fail") + "'><td>" + escapeHtml(id) + "</td><td>" + (r.ok ? "一致" : "不一致") +
-      "</td><td>" + (r.stdout_same ? "○" : "×") + "</td><td>" + (r.rec_same ? "○" : "×") + "</td><td>" +
-      (r.internals_n !== undefined ? r.internals_exact + "/" + r.internals_n : "-") + "</td><td>" +
-      (r.internals_maxrel !== undefined ? r.internals_maxrel.toExponential(2) : "-") + "</td><td>" + escapeHtml(diff) + "</td></tr>");
+      "</td><td>" + (r.stdout_same ? "○" : "×") + "</td><td>" + (r.rec_same ? "○" : "×") + "</td><td>" + (r.rc_same ? "○" : "×") + "</td><td>" + escapeHtml(diff) + "</td></tr>");
   }
   const pass = rows.filter((r) => r.ok).length;
   const allOk = pass === rows.length;
-  report = { test: "phase1_bunseki", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
+  report = { test: "v48_bunseki", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
   $("verdict").innerHTML = "<h2>" + (allOk ? "合格：全" + rows.length + "レースがPython版と一致" : "不合格：" + (rows.length - pass) + "レースが不一致（Web版は実運用しない）") + "</h2>";
   $("verdict").className = allOk ? "ok" : "err";
   setStatus("テスト完了（一致 " + pass + "/" + rows.length + "）。", allOk ? "ok" : "err");
@@ -89,7 +86,7 @@ async function runKosatsuTests() {
   }
   const pass = rows.filter((r) => r.ok).length;
   const allOk = pass === rows.length;
-  report = { test: "phase2_kosatsu", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
+  report = { test: "v48_kosatsu", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
   $("verdict").innerHTML = "<h2>" + (allOk ? "合格：考察" + rows.length + "件がPython版と一致" : "不合格：" + (rows.length - pass) + "件が不一致") + "</h2>";
   $("verdict").className = allOk ? "ok" : "err";
   setStatus("考察のテスト完了（一致 " + pass + "/" + rows.length + "）。", allOk ? "ok" : "err");
@@ -104,12 +101,12 @@ async function runStoreTests() {
   const checks = [];
   const add = (name, ok, note) => checks.push({ name, ok: !!ok, note: note || "" });
   try {
-    await storeInit("keiba_v47_test");
+    await storeInit("keiba_v48_test");
     await storeClear();
     const gs = [];
     for (const f of files) {
       const g = JSON.parse(await f.text());
-      if (g.rc === 0) gs.push(g);
+      if (g.rc === 0 && (g.kind === "通常" || g.kind === "新馬")) gs.push(g);
     }
     setStatus("記録のテスト中（" + gs.length + "件）…");
     let a1 = 0, k1 = 0;
@@ -163,7 +160,7 @@ async function runStoreTests() {
     "</td><td>" + (c.ok ? "OK" : "NG") + "</td><td>" + escapeHtml(c.note) + "</td></tr>").join("");
   $("resbox").classList.remove("hidden");
   const allOk = checks.every((c) => c.ok);
-  report = { test: "phase3_store", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: checks.length, pass: checks.filter((c) => c.ok).length, all_ok: allOk, results: checks };
+  report = { test: "v48_store", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: checks.length, pass: checks.filter((c) => c.ok).length, all_ok: allOk, results: checks };
   $("verdict").innerHTML = "<h2>" + (allOk ? "合格：記録とバックアップの確認 " + checks.length + "項目がすべてOK" : "不合格：NGの項目があります") + "</h2>";
   $("verdict").className = allOk ? "ok" : "err";
   setStatus("記録のテスト完了。", allOk ? "ok" : "err");
@@ -191,7 +188,7 @@ async function runAggTests() {
   }
   const pass = rows.filter((r) => r.ok).length;
   const allOk = pass === rows.length;
-  report = { test: "phase4_aggregate", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
+  report = { test: "v48_aggregate", tested_at: new Date().toISOString(), env: KEIBA.info, user_agent: navigator.userAgent, races: rows.length, pass: pass, all_ok: allOk, results: rows };
   $("verdict").innerHTML = "<h2>" + (allOk ? "合格：集計" + rows.length + "件がPython版と一致" : "不合格：" + (rows.length - pass) + "件が不一致") + "</h2>";
   $("verdict").className = allOk ? "ok" : "err";
   setStatus("集計のテスト完了（一致 " + pass + "/" + rows.length + "）。", allOk ? "ok" : "err");
@@ -237,7 +234,7 @@ async function runBulkTests() {
   const inps = Array.from($("inp").files).filter((f) => idOf(f.name)).sort((a, b) => a.name.localeCompare(b.name));
   if (!golds.size || !inps.length) { setStatus("一番上の欄で、expected のJSONと input のファイルを選んでください。", "err"); return; }
   $("runb").disabled = true;
-  await storeInit("keiba_v47_test");
+  await storeInit("keiba_v48_test");
   await storeClear();
   const tbl = $("tbl");
   tbl.innerHTML = "<tr><th>レースID</th><th>判定</th><th>状態</th><th>差の内容</th></tr>";
@@ -271,7 +268,7 @@ async function runBulkTests() {
 }
 $("runb").addEventListener("click", runBulkTests);
 $("save").addEventListener("click", () => {
-  if (report) downloadText(({ phase1_bunseki: "分析", phase2_kosatsu: "考察", phase3_store: "記録", phase4_aggregate: "集計", result_parse: "読み取り", bulk_analyze: "まとめて分析" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
+  if (report) downloadText("v4.8_" + ({ v48_bunseki: "分析", v48_kosatsu: "考察", v48_store: "記録", v48_aggregate: "集計", result_parse: "読み取り", bulk_analyze: "まとめて分析" }[report.test] || "") + "テスト結果.json", JSON.stringify(report, null, 1));
 });
 
 keibaInit((m) => setStatus(m))

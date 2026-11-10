@@ -92,15 +92,22 @@ $("restore").addEventListener("change", async () => {
 $("exportLedger").addEventListener("click", () => {
   const lines = ledgerLines(all.slice().sort((a, b) => a.race_id.localeCompare(b.race_id)));
   if (!lines.length) { setStatus("結果登録済みのレースがありません。", "err"); return; }
-  downloadText("LEDGER_v4.7.txt", lines.join("\n") + "\n");
+  downloadText("LEDGER_v4.8.txt", lines.join("\n") + "\n");
   setStatus("LEDGER行 " + lines.length + "件を書き出しました。", "ok");
+});
+
+$("exportPop").addEventListener("click", () => {
+  const rows = all.filter((r) => r.pop).sort((a, b) => a.race_id.localeCompare(b.race_id));
+  if (!rows.length) { setStatus("人気の記録（結果ページから登録したレース）がありません。", "err"); return; }
+  downloadText("POP_v4.8.txt", rows.map((r) => "POP " + JSON.stringify(r.pop)).join("\n") + "\n");
+  setStatus("POP行 " + rows.length + "件を書き出しました（全馬の単勝人気。次の版の検討用）。", "ok");
 });
 
 $("checkLedger").addEventListener("click", () => {
   const lines = ledgerLines(all);
   if (!lines.length) { setStatus("結果登録済みのレースがありません。", "err"); return; }
   const r = keibaCall("ledger_check", lines.join("\n") + "\n");
-  if (r.ok) setStatus("照合OK: LEDGER行 " + r.n + "件（版・指紋・再計算・重複を考察計算v4.7.pyで確認）。", "ok");
+  if (r.ok) setStatus("照合OK: LEDGER行 " + r.n + "件（版・指紋・再計算・重複を考察計算v4.8.pyで確認）。", "ok");
   else setStatus("照合で停止: " + r.error, "err");
 });
 
@@ -126,7 +133,7 @@ $("agg").addEventListener("click", async () => {
     $("agg").disabled = false;
   }
 });
-$("aggsave").addEventListener("click", () => { if (aggText) downloadText("aggregate_v4.7.txt", aggText); });
+$("aggsave").addEventListener("click", () => { if (aggText) downloadText("aggregate_v4.8.txt", aggText); });
 
 storeInit().then(refresh).then(() => setStatus("記録を読み込みました。", "ok"))
   .catch((e) => setStatus("記録を開けません: " + e.message, "err"));

@@ -1,5 +1,5 @@
 // 共通処理：Pyodideの起動、計算エンジンの読み込み、指紋の確認。
-// 計算はすべて keiba_v47.py（分析計算v4.7.py と同一）が行う。このファイルは受け渡しだけを行う。
+// 計算はすべて keiba_v48.py（分析計算v4.8.py と同一）・kosatsu_v48.py（考察計算v4.8.py と同一）が行う。このファイルは受け渡しだけを行う。
 "use strict";
 
 const KEIBA = {
@@ -28,20 +28,15 @@ async function keibaInit(setStatus) {
   await py.loadPackage(["beautifulsoup4", "lxml"]);
   py.FS.mkdirTree("/app");
   py.FS.mkdirTree("/work");
-  py.FS.writeFile("/app/keiba_v47.py", b64ToBytes(BUNDLE.files["keiba_v47.py"]));
-  py.FS.writeFile("/app/kosatsu_v47.py", b64ToBytes(BUNDLE.files["kosatsu_v47.py"]));
-  py.FS.writeFile("/app/result_html.py", b64ToBytes(BUNDLE.files["result_html.py"]));
-  py.FS.writeFile("/app/runner.py", b64ToBytes(BUNDLE.files["runner.py"]));
+  for (const name of Object.keys(BUNDLE.files)) py.FS.writeFile("/app/" + name, b64ToBytes(BUNDLE.files[name]));
   py.runPython("import sys\nif '/app' not in sys.path: sys.path.insert(0, '/app')\nimport runner");
   const info = JSON.parse(py.runPython("runner.load_engine()"));
-  if (info.code !== V.code) {
-    throw new Error("計算エンジンの指紋が違います（実行=" + info.code + "、正本=" + V.code + "）。使用を中止してください。");
+  const names = { code: "分析計算", code_k: "考察計算", code_m: "v48_model", code_p: "係数", code_a47: "分析計算v4.7", code_f: "候補抽出" };
+  for (const k of Object.keys(names)) {
+    if (info[k] !== V[k]) throw new Error(names[k] + "の指紋が違います（実行=" + info[k] + "、正本=" + V[k] + "）。使用を中止してください。");
   }
-  if (info.code_k !== V.code_k || info.version_k !== V.version) {
-    throw new Error("考察計算の指紋・版が違います（実行=" + info.code_k + "、正本=" + V.code_k + "）。使用を中止してください。");
-  }
-  if (info.version !== V.version) {
-    throw new Error("版が違います（実行=" + info.version + "、正本=" + V.version + "）。");
+  if (info.version !== V.version || info.version_k !== V.version) {
+    throw new Error("版が違います（実行=" + info.version + "／" + info.version_k + "、正本=" + V.version + "）。");
   }
   if (!info.lxml) {
     throw new Error("lxmlを使えません。PC版と解析結果が変わるおそれがあるため停止します（計画書■6）。");
@@ -133,6 +128,7 @@ async function showBkstat() {
 
 function footerText(info) {
   const V = BUNDLE.version;
-  return "版 " + V.version + " ／ 指紋 分析計算 " + (info ? info.code : V.code) + "・考察計算 " + (info ? info.code_k : V.code_k) + " ／ Pyodide " +
+  const g = (k) => (info ? info[k] : V[k]);
+  return "版 " + V.version + " ／ 指紋 分析計算 " + g("code") + "・考察計算 " + g("code_k") + "・係数 " + g("code_p") + " ／ Pyodide " +
     (info ? info.pyodide : V.pyodide) + "（Python " + (info ? info.python : "-") + "） ／ 仮想購入のみ（実際の馬券は購入しません）";
 }

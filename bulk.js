@@ -1,4 +1,4 @@
-// 出走表のまとめて分析。1ファイルずつ keiba_v47.py の predict を実行し、結果を記録する（計算は1レースずつと同じ）。
+// 出走表のまとめて分析。1ファイルずつ keiba_v48.py の predict を実行し、結果を記録する（計算は1レースずつと同じ）。
 "use strict";
 
 // files: Fileの配列。onProgress(k, n, row)。戻り値: 行の配列 {file, race_id, venue, rno, mode, rc, status, note, stdout}

@@ -1,4 +1,4 @@
-// 分析画面：HTMLを読み込み、keiba_v47.py の predict を実行して、出力をそのまま表示する。
+// 分析画面：HTMLを読み込み、keiba_v48.py の predict を実行して、出力をそのまま表示する。
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -28,7 +28,8 @@ function showSummary(res) {
   }
   const id = rec.race_id || "";
   const d = id.slice(0, 8);
-  const p1 = rec.p1 || {};
+  const plans = rec.plans || {};
+  const plan = (k) => (rec.mode === "通常" ? ((plans[k] || []).length ? plans[k].length + "点" : "見送り") : "-");
   const items = [
     ["開催日", d ? d.slice(0, 4) + "/" + d.slice(4, 6) + "/" + d.slice(6, 8) : "-"],
     ["会場", rec.venue],
@@ -36,10 +37,10 @@ function showSummary(res) {
     ["距離", rec.dist + "m"],
     ["頭数", rec.heads + "頭"],
     ["分析モード", rec.mode],
-    ["逃げ馬", rec.mode === "通常" ? p1.nige_all + "頭" : "-"],
-    ["切り捨て", rec.mode === "通常" ? ((p1.cut || []).join(",") || "なし") : "-"],
-    ["全買い", rec.mode === "通常" ? (p1.all_buy ? "はい" : "いいえ") : "-"],
-    ["仮想購入", rec.buy_points + "点 ／ " + rec.buy_stake + "円"],
+    ["案1", plan("案1")],
+    ["案2", plan("案2")],
+    ["案3", plan("案3")],
+    ["案4（三連複）", plan("案4")],
   ];
   let h = "<h2>概要</h2><dl class='sum'>";
   for (const [k, v] of items) h += "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>";

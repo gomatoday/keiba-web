@@ -1,13 +1,13 @@
-// Phase 3: 端末内の記録（IndexedDB）とバックアップ。
+// 端末内の記録（IndexedDB）とバックアップ（v4.8）。v4.7 の記録（keiba_v47）とは別の保存場所を使い、v4.7 の記録には触れない。
 // 記録は1レース1件。分析出力と考察出力の全文をそのまま保存する（数値を書き換えない・作り直さない）。
 // 正本はバックアップファイル。ブラウザ内の記録は消えることがあるため、定期的にバックアップする。
 "use strict";
 
 const STORE = {
-  dbName: "keiba_v47",
+  dbName: "keiba_v48",
   db: null,
 };
-const BACKUP_FORMAT = "keiba-v4.7-backup";
+const BACKUP_FORMAT = "keiba-v4.8-backup";
 const BACKUP_FORMAT_VER = 1;
 
 function idbOpen(name) {
@@ -82,8 +82,8 @@ async function storeSaveAnalysis(bunsekiStdout) {
   return { saved: true };
 }
 
-// 結果（考察出力）を記録する。すでに結果がある場合は記録しない。
-async function storeSaveKosatsu(bunsekiStdout, result, kosatsuStdout) {
+// 結果（考察出力）を記録する。すでに結果がある場合は記録しない。result は考察計算に渡した RES の1行、pop は結果ページから読んだ全馬の人気（手入力では null）。
+async function storeSaveKosatsu(bunsekiStdout, result, kosatsuStdout, pop) {
   const led = recFromText(kosatsuStdout, "LEDGER");
   if (!led) return { saved: false, reason: "LEDGER行がないため記録しません" };
   const old = await storeGet(led.race_id);
@@ -93,7 +93,7 @@ async function storeSaveKosatsu(bunsekiStdout, result, kosatsuStdout) {
     race_id: led.race_id, venue: led.venue, rno: led.rno, date: led.date, mode: led.mode,
     version: led.ver, code_a: led.code_a, code_k: led.code_k,
     bunseki_stdout: bunsekiStdout, analyzed_at: (old && old.analyzed_at) || null,
-    result: result, kosatsu_stdout: kosatsuStdout, registered_at: nowIso(),
+    result: result, pop: pop || null, kosatsu_stdout: kosatsuStdout, registered_at: nowIso(),
   });
   await metaPut("last_change", nowIso());
   return { saved: true, version_ok: led.ver === V.version && led.code_a === V.code && led.code_k === V.code_k };
@@ -151,7 +151,7 @@ async function storeRestore(obj) {
 function backupFileName() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
-  return "keiba_v4.7_backup_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + ".json";
+  return "keiba_v4.8_backup_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + ".json";
 }
 
 async function storeBackupDownload() {

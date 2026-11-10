@@ -64,3 +64,4 @@ pre.code { background: #f3f2ee; border-radius: 6px; padding: 10px; overflow-x: a
 .resrow { align-items: center; border-bottom: 1px dashed var(--line); padding: 4px 0; }
 footer { color: var(--mute); font-size: 12px; text-align: center; padding: 16px; }
 .sechead { font-size: 15px; color: var(--mute); margin: 20px 4px 8px; }
+.payin { display: inline-block; margin: 4px 14px 4px 0; }
