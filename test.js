@@ -250,6 +250,12 @@ async function runBulkTests() {
       const g = JSON.parse(await gf.text());
       const st = await storeGet(id);
       if (r.stdout !== g.stdout) note = "出力が正解データと違います";
+      else if (!g.rec) {
+        // 見送り（REC行なし）: 記録しないのが正しい
+        if (st) note = "見送りのレースが記録されています";
+        else if (r.status !== "見送り・買い目なし") note = r.status;
+        else ok = true;
+      }
       else if (!st || st.bunseki_stdout !== g.stdout) note = "記録が正解データと違います";
       else if (r.status !== "記録しました") note = r.status;
       else ok = true;
