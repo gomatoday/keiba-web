@@ -36,7 +36,7 @@
   </section>
   <section class="card">
     <h2>集計の一致テスト</h2>
-    <p class="hint">正解データ（golden_v4.9）の expected_aggregate フォルダのJSONを全部選んでください（テスト専用。設計用のレースを test_include_design で対象に含め、判定の件数を test_judge_n・test_buy_n で下げたもの、件数不足で品質のみ、など）。合格の基準: aggregateの出力全文が完全一致。1件に1分ほどかかることがあります。</p>
+    <p class="hint">正解データ（golden_v4.9）の expected_aggregate フォルダのJSONを全部選んでください（テスト専用。設計用のレースを test_include_design で対象に含め、判定の件数を test_judge_n で下げたもの、件数不足で品質のみ、など）。合格の基準: aggregateの出力全文が完全一致。1件に1分ほどかかることがあります。</p>
     <label>集計の正解データ（expected_aggregate/*.json）<input type="file" id="golda" multiple accept=".json"></label>
     <button id="runa" disabled>集計のテスト開始</button>
   </section>

@@ -102,7 +102,7 @@ function showSummary(led) {
   }
   let h = "<h2>結果の概要</h2><dl class='sum'>";
   for (const [k, v] of items) h += "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>";
-  box.innerHTML = h + "</dl><p class='hint'>モデルの判定の値・3案の結果は下の考察出力のとおり。集計（モデル300レース・案B400点の判定）は記録の画面で行います。</p>";
+  box.innerHTML = h + "</dl><p class='hint'>モデルの判定の値・3案の結果は下の考察出力のとおり。集計（300レースの判定）は記録の画面で行います。</p>";
   box.classList.remove("hidden");
 }
 

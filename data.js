@@ -31,7 +31,7 @@ async function refresh() {
   const normal = reg.filter((r) => r.mode === "通常" && r.code_a === V.code && r.code_k === V.code_k && r.version === V.version);
   const other = reg.length - normal.length;
   $("counts").textContent = "記録 " + all.length + "件 ／ 結果登録済み " + reg.length + "件（うち通常モード・現行の指紋 " + normal.length + "件" +
-    (other ? "、新馬モードまたは指紋・版の違うもの " + other + "件" : "") + "） ／ 判定は、モデルが対象300レース、買い方が案B400点（数え方の詳細は考察計算v4.9 の aggregate に従う）";
+    (other ? "、新馬モードまたは指紋・版の違うもの " + other + "件" : "") + "） ／ 判定に必要な対象は300レース以上（数え方の詳細は考察計算v4.9 の aggregate に従う）";
   let h = "<tr><th>レースID</th><th>開催日</th><th>会場</th><th>R</th><th>モード</th><th>状態</th><th>結果</th><th>登録日時</th><th>指紋</th><th></th></tr>";
   for (const r of all) {
     const fpOk = r.code_a === V.code && (!r.code_k || r.code_k === V.code_k) && r.version === V.version;

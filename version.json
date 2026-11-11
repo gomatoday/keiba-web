@@ -2,7 +2,7 @@
  "version": "v4.9",
  "code": "0f9591fec5db",
  "engine_file": "keiba_v49.py（分析計算v4.9.py と同一内容）",
- "code_k": "d1cbb77ae8be",
+ "code_k": "0ae8790e30d9",
  "kosatsu_file": "kosatsu_v49.py（考察計算v4.9.py と同一内容）",
  "code_m": "09f6bf184f33",
  "code_p": "087f15e9eebf",
@@ -12,7 +12,7 @@
  "code_p48": "6f10423a51fd",
  "full_sha256": {
   "keiba_v49.py": "cfa9d42b330b7b8a5fd24bb3774b68847e9634a1e185c686a7447f9144206874",
-  "kosatsu_v49.py": "5e1f4b3aedf4ffc377ce84398a6f27a7ea70d5cdab2ac0dc5a7bc9cc97e5e54c",
+  "kosatsu_v49.py": "7bf981e4c1a10b2e7c860c89043540e14b883b7c40972a71cfb1ac8b3759e631",
   "v49_model.py": "132479bb764df9515a350aaea0415a5aa22df81f9850ec3026067a06876c5d2e",
   "v49_params.json": "a14b360b24f1462e0696f93c6371f5d62113747029a88b50ff1051df77c7e0be",
   "v48_model.py": "eb01ca3c95d0738ea15b5e4ab602f4ebd7d510c655727b4ce086519182bcec6f",
