@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>出走表・結果の一括取得</title>
+<style>
+  :root { --fg:#1d2433; --sub:#5b6474; --line:#d9dde5; --bg:#f6f7f9; --card:#fff; --acc:#1f6feb; --ok:#1a7f37; --ng:#cf222e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.3rem; margin: 8px 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .lead { color: var(--sub); margin: 0 0 16px; font-size: .92rem; }
+  section { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .step { display:inline-block; background: var(--acc); color:#fff; border-radius: 50%; width: 1.6em; height: 1.6em; text-align:center; line-height:1.6em; font-size:.85rem; margin-right:6px; }
+  button, .btn { font: inherit; padding: 7px 14px; border-radius: 7px; border: 1px solid var(--line); background:#fff; cursor:pointer; color: var(--fg); text-decoration:none; display:inline-block; }
+  button.primary, .btn.primary { background: var(--acc); border-color: var(--acc); color:#fff; }
+  button:disabled { opacity:.5; cursor: default; }
+  .row { display:flex; gap:8px; flex-wrap: wrap; align-items:center; margin: 8px 0; }
+  .meeting { border-top: 1px solid var(--line); padding: 8px 0; }
+  .meeting:first-child { border-top: none; }
+  .meeting > label { font-weight: 600; }
+  .days { display:flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0 24px; font-size: .92rem; }
+  .days label { white-space: nowrap; }
+  .tag { font-size: .75rem; border:1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 2px; color: var(--sub); }
+  .tag.g { border-color:#bf8700; color:#9a6700; }
+  .month { font-weight:700; margin: 10px 0 2px; color: var(--sub); font-size:.9rem; }
+  textarea, input[type=text], input[type=password], select { font: inherit; width: 100%; padding: 7px 9px; border:1px solid var(--line); border-radius: 7px; background:#fff; }
+  textarea { min-height: 80px; font-family: ui-monospace, Consolas, monospace; font-size: .85rem; }
+  .note { color: var(--sub); font-size: .85rem; }
+  .msg { font-size: .9rem; margin-top: 6px; }
+  .msg.ok { color: var(--ok); } .msg.ng { color: var(--ng); }
+  table { border-collapse: collapse; width:100%; font-size:.88rem; }
+  td, th { border-bottom:1px solid var(--line); padding: 5px 4px; text-align:left; }
+  details summary { cursor:pointer; font-weight:600; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>出走表・結果の一括取得</h1>
+  <p class="lead">開催カレンダーのHTML（.txt）から開催日を読み取ります。選んだ開催日の全レースについて、GitHub Actionsが出走表と結果のページを取得し、zipにまとめます。</p>
+
+  <section>
+    <h2><span class="step">1</span>カレンダーを読み込む</h2>
+    <p class="note">nankankeiba.com の「年間開催日程」ページ（calendar/YYYYMM.do）のHTMLを保存した .txt を選んでください。複数（例: 7〜9月と10〜12月）をまとめて選べます。</p>
+    <input type="file" id="files" accept=".txt,.html,.htm" multiple>
+    <div class="msg" id="loadMsg"></div>
+  </section>
+
+  <section id="pickSec" hidden>
+    <h2><span class="step">2</span>開催を選ぶ</h2>
+    <div class="row">
+      <button id="allOn">全部選ぶ</button>
+      <button id="allOff">全部外す</button>
+      <span class="note">開催名のチェックで、その開催の全日を選べます</span>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section id="outSec" hidden>
+    <h2><span class="step">3</span>取得の内容</h2>
+    <div class="grid2">
+      <label>取得するページ
+        <select id="kinds">
+          <option>出走表と結果</option>
+          <option>出走表のみ</option>
+          <option>結果のみ</option>
+        </select>
+      </label>
+      <div class="note" id="estimate"></div>
+    </div>
+    <p class="note" style="margin-bottom:2px">開催日のコード（Actionsに渡す値）</p>
+    <textarea id="codes" readonly></textarea>
+    <div class="row"><button id="copy">コピー</button><span class="msg" id="copyMsg"></span></div>
+  </section>
+
+  <section id="runSec" hidden>
+    <h2><span class="step">4</span>取得を始める</h2>
+    <details open>
+      <summary>A. GitHubの画面から始める（トークン不要）</summary>
+      <ol class="note">
+        <li>上の「コピー」を押す</li>
+        <li>下のボタンでActionsの画面を開き、「Run workflow」を押す</li>
+        <li>「開催日のコード」に貼り付け、「取得するページ」を選んで、緑の「Run workflow」を押す</li>
+        <li>終わったら実行結果を開き、下の方の「Artifacts」からzipをダウンロード（7日間置かれます）</li>
+      </ol>
+      <a class="btn primary" id="actionsLink" target="_blank" rel="noopener">Actionsの画面を開く</a>
+    </details>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <details>
+      <summary>B. このページのボタンで始める（トークンが必要）</summary>
+      <p class="note">GitHubの「Fine-grained personal access token」を使います。対象のリポジトリだけを選び、権限は「Actions: Read and write」だけにしてください。トークンは、下の「このブラウザに覚えさせる」をチェックしたときだけこの端末に保存します（GitHub以外には送りません）。</p>
+      <div class="grid2">
+        <label>リポジトリ（持ち主/名前）<input type="text" id="repo"></label>
+        <label>ブランチ<input type="text" id="branch" value="main"></label>
+      </div>
+      <label>トークン<input type="password" id="token" autocomplete="off"></label>
+      <div class="row">
+        <label><input type="checkbox" id="remember"> このブラウザに覚えさせる</label>
+        <button id="forget">覚えたトークンを消す</button>
+      </div>
+      <div class="row">
+        <button class="primary" id="run">取得を始める</button>
+        <button id="refresh">実行状況を見る</button>
+      </div>
+      <div class="msg" id="runMsg"></div>
+      <div id="runs"></div>
+    </details>
+  </section>
+
+  <p class="note">保存されるファイル: zipの中の「出走表/レースID.txt」「結果/レースID.txt」（レースIDは16桁）と「取得報告.txt」。結果がまだ出ていないレースは結果を保存せず、報告に載せます。</p>
+</main>
+
+<script src="calendar.js"></script>
+<script>
+(function () {
+  var WORKFLOW = "fetch-races.yml";
+  var $ = function (id) { return document.getElementById(id); };
+  var days = [];        // 読み込んだ開催日
+  var selected = {};    // code -> true
+
+  // GitHub Pages（https://持ち主.github.io/リポジトリ/...）なら、リポジトリ名を自動で入れる
+  function guessRepo() {
+    var saved = store("repo");
+    if (saved) return saved;
+    var m = /^([^.]+)\.github\.io$/.exec(location.hostname);
+    var seg = location.pathname.split("/").filter(Boolean)[0];
+    return m && seg ? m[1] + "/" + seg : "gomatoday/keiba-web";
+  }
+  function store(k, v) {
+    try {
+      if (v === undefined) return localStorage.getItem("nkfetch." + k);
+      if (v === null) localStorage.removeItem("nkfetch." + k); else localStorage.setItem("nkfetch." + k, v);
+    } catch (e) { return null; }
+  }
+
+  $("repo").value = guessRepo();
+  if (store("token")) { $("token").value = store("token"); $("remember").checked = true; }
+  updateActionsLink();
+  $("repo").addEventListener("change", function () { store("repo", $("repo").value.trim()); updateActionsLink(); });
+  function updateActionsLink() {
+    $("actionsLink").href = "https://github.com/" + $("repo").value.trim() + "/actions/workflows/" + WORKFLOW;
+  }
+
+  $("files").addEventListener("change", function (e) {
+    var fs = Array.prototype.slice.call(e.target.files);
+    if (!fs.length) return;
+    Promise.all(fs.map(readText)).then(function (texts) {
+      var map = {};
+      days.forEach(function (d) { map[d.code] = d; });
+      var added = 0;
+      texts.forEach(function (t) {
+        NankanCalendar.parseCalendar(t).forEach(function (d) { if (!map[d.code]) added++; map[d.code] = d; });
+      });
+      days = Object.keys(map).sort().map(function (k) { return map[k]; });
+      if (!days.length) {
+        msg("loadMsg", "開催日を読み取れませんでした。年間開催日程のページのHTMLか確かめてください。", false);
+        return;
+      }
+      msg("loadMsg", fs.length + "ファイルから開催日を読み取りました（新しく " + added + "日、合計 " + days.length + "日）", true);
+      render();
+    });
+    e.target.value = "";
+  });
+
+  function readText(file) {
+    return file.arrayBuffer().then(function (buf) {
+      var t = new TextDecoder("utf-8").decode(buf);
+      if (t.indexOf("/program/") < 0) { try { t = new TextDecoder("shift_jis").decode(buf); } catch (e) {} }
+      return t;
+    });
+  }
+
+  function render() {
+    var meetings = NankanCalendar.groupMeetings(days);
+    var box = $("list");
+    box.innerHTML = "";
+    var lastMonth = "";
+    meetings.forEach(function (mt) {
+      var first = mt.days[0], mon = first.date.slice(0, 4) + "年" + (+first.date.slice(4, 6)) + "月";
+      if (mon !== lastMonth) {
+        var h = document.createElement("div"); h.className = "month"; h.textContent = mon; box.appendChild(h); lastMonth = mon;
+      }
+      var div = document.createElement("div"); div.className = "meeting";
+      var head = document.createElement("label");
+      var cb = document.createElement("input"); cb.type = "checkbox";
+      head.appendChild(cb);
+      head.appendChild(document.createTextNode(" " + mt.venue + " " + mt.kai + "回（" + first.label + "〜" + mt.days[mt.days.length - 1].label + "・" + mt.days.length + "日）"));
+      div.appendChild(head);
+      var dl = document.createElement("div"); dl.className = "days";
+      var dayBoxes = [];
+      mt.days.forEach(function (d) {
+        var l = document.createElement("label");
+        var c = document.createElement("input"); c.type = "checkbox"; c.checked = !!selected[d.code];
+        c.addEventListener("change", function () { if (c.checked) selected[d.code] = true; else delete selected[d.code]; sync(); update(); });
+        dayBoxes.push(c);
+        l.appendChild(c);
+        l.appendChild(document.createTextNode(" " + d.label + "(" + d.week + ") " + d.nichi + "日目"));
+        if (d.time) { var s = document.createElement("span"); s.className = "tag"; s.textContent = d.time; l.appendChild(s); }
+        d.grades.forEach(function (g) { var s = document.createElement("span"); s.className = "tag g"; s.textContent = g; l.appendChild(s); });
+        dl.appendChild(l);
+      });
+      function sync() {
+        var n = dayBoxes.filter(function (x) { return x.checked; }).length;
+        cb.checked = n === dayBoxes.length; cb.indeterminate = n > 0 && n < dayBoxes.length;
+      }
+      cb.addEventListener("change", function () {
+        mt.days.forEach(function (d, i) { dayBoxes[i].checked = cb.checked; if (cb.checked) selected[d.code] = true; else delete selected[d.code]; });
+        sync(); update();
+      });
+      sync();
+      div.appendChild(dl);
+      box.appendChild(div);
+    });
+    $("pickSec").hidden = false; $("outSec").hidden = false; $("runSec").hidden = false;
+    update();
+  }
+
+  $("allOn").addEventListener("click", function () { days.forEach(function (d) { selected[d.code] = true; }); render(); });
+  $("allOff").addEventListener("click", function () { selected = {}; render(); });
+  $("kinds").addEventListener("change", update);
+
+  function codes() { return days.filter(function (d) { return selected[d.code]; }).map(function (d) { return d.code; }); }
+
+  function update() {
+    var c = codes();
+    $("codes").value = c.join(",");
+    var per = $("kinds").value === "出走表と結果" ? 2 : 1;
+    var pages = c.length * (1 + 12 * per);              // レース一覧＋1日12レースとして
+    var min = Math.ceil(pages * 2.3 / 60);              // 1回あたり約2.3秒として
+    $("estimate").textContent = c.length
+      ? "選んだ開催日: " + c.length + "日。取得は最大で約" + pages + "ページ、" + (min < 60 ? "約" + min + "分" : "約" + (min / 60).toFixed(1) + "時間") + "の見込み"
+      : "開催日が選ばれていません";
+    $("copy").disabled = $("run").disabled = !c.length;
+  }
+
+  $("copy").addEventListener("click", function () {
+    var t = $("codes").value;
+    var done = function () { msg("copyMsg", "コピーしました（" + codes().length + "日分）", true); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback); else fallback();
+    function fallback() { $("codes").select(); try { document.execCommand("copy"); done(); } catch (e) { msg("copyMsg", "コピーできませんでした。枠の中を選んでコピーしてください", false); } }
+  });
+
+  // ---- GitHub API（トークンを使う場合） ----
+  function api(path, opt) {
+    var token = $("token").value.trim();
+    if (!token) return Promise.reject(new Error("トークンを入力してください"));
+    if ($("remember").checked) store("token", token);
+    opt = opt || {};
+    opt.headers = { "Accept": "application/vnd.github+json", "Authorization": "Bearer " + token, "X-GitHub-Api-Version": "2022-11-28" };
+    return fetch("https://api.github.com/repos/" + $("repo").value.trim() + path, opt).then(function (r) {
+      if (r.status === 204) return null;
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error((r.status === 401 ? "トークンが正しくないか期限切れです" : r.status === 403 || r.status === 404 ? "リポジトリかワークフローが見つからないか、トークンの権限が足りません" : "エラー") + "（" + r.status + (j && j.message ? "：" + j.message : "") + "）");
+        return j;
+      });
+    });
+  }
+
+  $("run").addEventListener("click", function () {
+    var c = codes();
+    if (!c.length) return;
+    if (!confirm(c.length + "日分の取得を始めます。よろしいですか？")) return;
+    $("run").disabled = true;
+    msg("runMsg", "送信中…", true);
+    api("/actions/workflows/" + WORKFLOW + "/dispatches", {
+      method: "POST",
+      body: JSON.stringify({ ref: $("branch").value.trim() || "main", inputs: { codes: c.join(","), kinds: $("kinds").value } })
+    }).then(function () {
+      msg("runMsg", "取得を始めました。数秒後に「実行状況を見る」で確認できます。", true);
+      setTimeout(loadRuns, 4000);
+    }).catch(function (e) { msg("runMsg", e.message, false); }).then(function () { $("run").disabled = false; });
+  });
+
+  $("refresh").addEventListener("click", loadRuns);
+  $("forget").addEventListener("click", function () { store("token", null); $("token").value = ""; $("remember").checked = false; msg("runMsg", "このブラウザに覚えさせたトークンを消しました", true); });
+
+  function loadRuns() {
+    api("/actions/workflows/" + WORKFLOW + "/runs?per_page=5").then(function (j) {
+      var runs = (j && j.workflow_runs) || [];
+      if (!runs.length) { $("runs").innerHTML = '<p class="note">まだ実行がありません</p>'; return; }
+      var html = "<table><tr><th>始めた時刻</th><th>状況</th><th></th></tr>";
+      runs.forEach(function (r) {
+        var st = r.status !== "completed" ? (r.status === "queued" ? "順番待ち" : "取得中") :
+          (r.conclusion === "success" ? "完了" : r.conclusion === "cancelled" ? "中止" : "失敗（" + r.conclusion + "）");
+        html += "<tr><td>" + new Date(r.created_at).toLocaleString("ja-JP") + "</td><td>" + st + "</td><td><a href=\"" + r.html_url + "\" target=\"_blank\" rel=\"noopener\">開く（zipはここから）</a></td></tr>";
+      });
+      $("runs").innerHTML = html + "</table>";
+    }).catch(function (e) { msg("runMsg", e.message, false); });
+  }
+
+  function msg(id, text, ok) { var el = $(id); el.textContent = text; el.className = "msg " + (ok ? "ok" : "ng"); }
+})();
+</script>
+</body>
+</html>
