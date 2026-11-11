@@ -1,0 +1,49 @@
+name: 出走表・結果の一括取得
+
+on:
+  workflow_dispatch:
+    inputs:
+      codes:
+        description: "開催日のコード（14桁）。カンマ区切りで複数可。fetch/ のページで作れます"
+        required: true
+        type: string
+      kinds:
+        description: "取得するページ"
+        required: true
+        default: "出走表と結果"
+        type: choice
+        options:
+          - "出走表と結果"
+          - "出走表のみ"
+          - "結果のみ"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fetch-races
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 取得
+        id: fetch
+        env:
+          CODES: ${{ inputs.codes }}
+          KINDS: ${{ inputs.kinds }}
+          WAIT: "2"
+        run: python3 tools/fetch_races.py out
+
+      - name: zipにして置く（7日間）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.fetch.outputs.name || 'races' }}
+          path: out/
+          retention-days: 7
+          if-no-files-found: warn
