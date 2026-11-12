@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オッズ入り出走表の抽出（検討用）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>オッズ入り出走表の抽出（検討用）</h1>
+  <nav><a href="index.html">分析</a><a href="kekka.html">結果入力</a><a href="data.html">記録</a><a href="test.html">一致テスト</a><a href="odds.html" class="on">オッズ抽出</a></nav>
+</header>
+<main>
+  <section class="card">
+    <h2>この画面について</h2>
+    <p class="hint">オッズが表示された状態で保存した出走表と、同じレースの結果ページを読み、レースごとに「v4.9 の分析（REC行）・全馬のオッズ・結果」を1行にまとめて書き出します。想定オッズ帯の検討用です。</p>
+    <p class="hint">v4.9 の記録（記録の画面のデータ）には書き込みません。v4.9 の分析・考察・判定と指紋は変わりません。データは外部に送信しません。</p>
+    <p class="hint">どのレースを入れるかは、選んだファイルで決まります。この画面はレースを選んだり分けたりしません。設計用と試験用は、ファイルを分けて別々に実行してください。</p>
+  </section>
+
+  <section class="card">
+    <h2>1. 名前とファイル</h2>
+    <label>この書き出しの名前（ファイル名に入ります。例: 設計用・試験用）<input type="text" id="label" maxlength="20" style="font-size:15px;margin-left:6px"></label>
+    <label>オッズ入りの出走表（.txt／.html。何件でも）<input type="file" id="cards" multiple accept=".html,.htm,.txt,text/html,text/plain"></label>
+    <label>結果ページ（成績・払戻金。.txt／.html。何件でも）<input type="file" id="results" multiple accept=".html,.htm,.txt,text/html,text/plain"></label>
+    <label><input type="checkbox" id="blank" checked> オッズを消したHTMLでも分析が同じになるかを1レースずつ確かめる（時間が約2倍になります）</label>
+    <button id="run" disabled>抽出開始</button>
+    <p id="status" class="status">準備中…</p>
+  </section>
+
+  <section class="card hidden" id="done">
+    <h2>2. 結果</h2>
+    <div id="summary"></div>
+    <div class="tools">
+      <button id="save" class="sub">抽出ファイルを保存（Claudeに渡すファイル）</button>
+      <button id="savecsv" class="sub">一覧を保存（CSV）</button>
+    </div>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </section>
+</main>
+<footer id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.5/full/pyodide.js"></script>
+<script src="bundle.js"></script>
+<script src="odds_bundle.js"></script>
+<script src="common.js"></script>
+<script src="odds.js"></script>
+</body>
+</html>

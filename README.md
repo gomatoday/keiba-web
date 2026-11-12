@@ -17,6 +17,12 @@
 - result_html.py（v4.7 と同じ）・pop_html.py・result_v49.py：結果ページの読み取り（入力の補助。考察の計算は持たない）
 - runner.py：受け渡し役（予測ロジックを持たない）
 
+次の版の検討用（v4.9 の分析・考察・判定と記録には関わらない。bundle.js・version.json・指紋は変わらない）
+- odds.html・odds.js：オッズ入り出走表の抽出。オッズが表示された状態で保存した出走表と結果ページを読み、レースごとに「v4.9 の分析（REC行）・全馬の単勝・複勝のオッズと人気・結果（RES）」を1行（ODDSRACE）にまとめて書き出す。オッズを消したHTMLでも分析が同じかを1レースずつ確かめられる。レースの選び方・分け方には関わらない（選ばれたファイルをすべて読む）
+- odds_html.py：出走表のオッズの欄の読み取り（予測ロジックを持たない）
+- odds_runner.py：odds.html の受け渡し役（runner.py の分析・結果の読み取りをそのまま呼ぶ）
+- build_odds.py：odds_html.py・odds_runner.py を odds_bundle.js に埋め込む（この2つを直したら実行）
+
 その他
 - build.py：上のファイルを bundle.js に埋め込み、version.json（指紋の正本）を作る（.py や係数を差し替えたら必ず実行）
 - Pyodide 0.29.5（Python 3.13）に固定。beautifulsoup4・lxml を使う
