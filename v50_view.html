@@ -22,6 +22,7 @@ button:disabled{opacity:.45;cursor:default}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
 .race h2{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.race h2.part{font-size:.95rem;margin-top:14px;padding:4px 8px;border-left:4px solid var(--acc);background:color-mix(in srgb,var(--acc) 7%,transparent)}
 .race h2 .rid{font-weight:400;color:var(--mute);font-size:.8rem}
 .hz{display:grid;grid-template-columns:2.2em 2.2em 1fr 4.6em;gap:2px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
 .hz:first-of-type{border-top:none}
@@ -92,7 +93,7 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">人気の確率 p = softmax(τ0·s)、τ0 = 0.4680。s は stage1_params_55.json（SHA-256 90b07936…。ページには入れず、開くたびに選ぶ）の係数による1頭のスコア。想定オッズ = 0.7856 ÷ p。
 抽出のコードは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">ページの版: v50-view-3 (2026-11-13)</p>
+<p class="note">ページの版: v50-view-4 (2026-11-13)</p>
 </section>
 </main>
 
@@ -2293,7 +2294,8 @@ def score(csv_text):
         G = np.column_stack([C[:, g].sum(axis=1) for g in GIX])
         assert np.allclose(G.sum(axis=1), sc - sc.mean())
         items = [[[LAB[COLS55[j]], float(C[i, j])] for j in np.argsort(-np.abs(C[i]))[:8] if abs(C[i, j]) >= 0.005] for i in range(len(ix))]
-        out.append({"race_id": rid, "num": [int(x) for x in D["num"].values[ix]], "s": [float(x) for x in sc],
+        AB = np.column_stack([pd.to_numeric(D["c%d" % k].values[ix], errors="coerce") for k in range(1, 8)]).astype(float)
+        out.append({"race_id": rid, "ab": np.nan_to_num(AB).tolist(), "num": [int(x) for x in D["num"].values[ix]], "s": [float(x) for x in sc],
                     "sc": [float(x) for x in sc - sc.mean()], "p": [float(x) for x in p], "odds": [float(R_PAY / x) for x in p],
                     "groups": G.tolist(), "items": items})
     return json.dumps({"races": out, "te_missing": miss, "gnames": [g for g, _ in GRP], "tau": TAU}, ensure_ascii=False)
@@ -2306,14 +2308,19 @@ def info(path):
     soup, raw = E47.make_soup(path)
     hdr = E47.parse_header(soup, raw, warns)
     horses = E47.parse_horses(soup, hdr, warns)
-    return json.dumps({"venue": hdr.get("venue"), "dist": hdr.get("dist"), "surface": hdr.get("surface"), "course": hdr.get("course"),
+    try:
+        styles = E47.build_features(horses, hdr, E47.SETTINGS["recency"])[1]
+        style_ja = [E47.STYLES[x] if x is not None else "不明" for x in styles]
+    except Exception:
+        style_ja = ["" for _ in horses]
+    return json.dumps({"style": style_ja, "nige_boost": E47.SETTINGS["nige_boost"], "venue": hdr.get("venue"), "dist": hdr.get("dist"), "surface": hdr.get("surface"), "course": hdr.get("course"),
                        "heads": hdr.get("heads"), "horses": [{"num": h.get("num"), "name": h.get("name"), "jockey": h.get("jockey")} for h in horses]},
                       ensure_ascii=False)
 </script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v50-view-3 (2026-11-13)";
+const VERSION = "v50-view-4 (2026-11-13)";
 let py = null, runFn = null, scoreFn = null, infoFn = null, COLS = null, parOK = false;
 const PSHA = "90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f";
 const $ = id => document.getElementById(id);
@@ -2382,7 +2389,7 @@ $("bRun").onclick = async () => {
       const byNum = Object.fromEntries(inf.horses.map(h => [h.num, h]));
       const ord = R.num.map((n, k) => k).sort((a, b) => R.p[b] - R.p[a] || R.num[a] - R.num[b]);
       const pmax = Math.max(...R.p);
-      let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2><div class="legend"><span>予想人気順・馬番・馬名（騎手）</span><span>想定オッズ</span></div>';
+      let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2><h2 class="part">人気の見通し（市場の予測）<span class="rid">予想人気順</span></h2><div class="legend"><span>予想人気順・馬番・馬名（騎手）</span><span>想定オッズ</span></div>';
       ord.forEach((k, r) => {
         const n = R.num[k], hz = byNum[n] || {};
         h += '<div class="hz"><span class="rk">' + (r + 1) + '</span><span class="num">' + n + '</span><span class="nm">' + escH(hz.name || "") + '<small>' + escH(hz.jockey || "") + '</small></span><span class="od">' + odd(R.odds[k]) + '</span>' +
@@ -2411,6 +2418,23 @@ $("bRun").onclick = async () => {
         h += '<div class="calc">スコア s のレース平均との差 ' + (R.sc[k] >= 0 ? "+" : "−") + Math.abs(R.sc[k]).toFixed(2) + ' → τ0（' + sc.tau.toFixed(3) + '）を掛けて全馬で softmax → 人気の確率 ' + pct(R.p[k]) +
              ' → 想定オッズ 0.7856 ÷ ' + R.p[k].toFixed(4) + ' = ' + odd(R.odds[k]) + '</div></details>';
       });
+      // 能力計（v4.7・前5走）: 馬番順
+      const KN = ["着順", "着差", "位置", "末脚", "適性", "時計", "騎手"];
+      const AB = R.ab, U = AB.map(r => r.reduce((x, y) => x + y, 0));
+      const sty = R.num.map(n => { const j = inf.horses.findIndex(x => x.num === n); return j >= 0 ? (inf.style[j] || "") : ""; });
+      const ut = U.map((u, k) => u + (sty[k] === "逃げ" ? inf.nige_boost : 0)), um = Math.max(...ut), ue = ut.map(x => Math.exp(x - um)), us = ue.reduce((x, y) => x + y, 0);
+      const urk = U.map((u, k) => 1 + U.filter((v, j) => v > u || (v === u && R.num[j] < R.num[k])).length);
+      const amax = Math.max(0.2, ...AB.flat().map(Math.abs)), umax = Math.max(0.3, ...U.map(Math.abs));
+      const cellA = (v, m) => { const a = Math.min(1, Math.abs(v) / m) * 0.55; const c = v >= 0 ? "31,122,77" : "179,38,30";
+        return '<td style="background:rgba(' + c + ',' + a.toFixed(3) + ')">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</td>'; };
+      h += '<h2 class="part">能力計（v4.7・前5走から）<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><tr><th>馬番</th><th>馬名</th><th>脚質</th>' +
+           KN.map(x => '<th>' + x + '</th>').join("") + '<th>能力計</th><th>順位</th><th>v4.7勝率</th></tr>';
+      R.num.map((n, k) => k).sort((a, b) => R.num[a] - R.num[b]).forEach(k => { const hz = byNum[R.num[k]] || {};
+        h += '<tr><td>' + R.num[k] + '</td><td class="l">' + escH(hz.name || "") + '</td><td>' + escH(sty[k]) + '</td>' + AB[k].map(v => cellA(v, amax)).join("") +
+             cellA(U[k], umax) + '<td>' + urk[k] + '</td><td>' + pct(ue[k] / us) + '</td></tr>'; });
+      h += '</table></div><p class="note">能力計 = 7項目の合計。各項目は、前5走を同じ重みで平均した値をレースの中で偏差にし、配点（着順18・着差14・位置8・末脚15・適性14・時計6・騎手15）を掛けたもの（v4.7 のコードのまま）。' +
+           'v4.7勝率 = softmax(能力計 ＋ 逃げ補正)。逃げ補正は脚質が逃げの馬だけ ＋' + inf.nige_boost + '。v4.7 はこの方式で検証し、回収率100%には届かなかった。' +
+           '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。</p>';
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
       sec.innerHTML = h;
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
