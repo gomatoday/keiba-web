@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>v5.0 探索: 実際の人気順位別の回収の結果（2026-11-13 11:52 JST）（見やすい版）</title>
+<style>
+:root{--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--head:#f6f8fa;--accent:#0969da}
+@media (prefers-color-scheme:dark){:root{--fg:#e6edf3;--muted:#9198a1;--line:#3d444d;--head:#151b23;--accent:#4493f8}body{background:#0d1117}}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;color:var(--fg);
+ line-height:1.7;max-width:880px;margin:0 auto;padding:16px 14px 48px;font-size:15px}
+h1{font-size:1.35em;line-height:1.4;border-bottom:1px solid var(--line);padding-bottom:.3em}
+h2{font-size:1.15em;margin-top:1.8em;border-bottom:1px solid var(--line);padding-bottom:.2em}
+h3{font-size:1.1em;margin-top:2em;padding:.25em .6em;background:var(--head);border-left:4px solid var(--accent)}
+h4{font-size:1em;margin:1.2em 0 .4em}
+p,li{overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.85em}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;font-size:.92em;margin:.3em 0;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:.35em .6em}
+th{background:var(--head);font-weight:600}
+td{text-align:right;font-variant-numeric:tabular-nums}
+td:first-child{text-align:left}
+tbody tr:nth-child(even){background:color-mix(in srgb,var(--head) 60%,transparent)}
+p.note{font-size:.85em;color:var(--muted);margin:.3em 0 1em}
+footer{margin-top:3em;font-size:.8em;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>v5.0 探索: 実際の人気順位別の回収の結果（2026-11-13 11:52 JST）（見やすい版）</h1>
+<p class="meta">元の文書: claude/v5.0/探索_人気順位別の回収_結果.md。数字は元の出力のまま変えていない。表の形だけを変えた（単勝と複勝を別の表に分けた）。</p>
+<p class="meta">事前登録: claude/v5.0/探索_人気順位別の回収_事前登録.md（SHA-256 89870d492d998ec4c346ccedcda1859eae1c9b88d5b99ed8d11476510e86b25c）。
+スクリプト: explore_pop.py（SHA-256 5b48ca2409716f43b9323407c1818fb48b1a0645bae84b73b9f5a1ac62b55c28）。下の表の出力の SHA-256: c246967b74dcb6f7ba390bfb7cbaafa8ac303f464a19e8229c2c7027a7831b65。探索であり、判定ではない。</p>
+<h2>読み取り（記録のみ）</h2>
+<ul>
+<li>全体（1,152レース）で、どの人気の区分も、単勝・複勝とも回収率の95%区間の上限が100%未満。</li>
+<li>単勝は1〜2番人気で約79〜80%、3番人気で66.5%、9番人気以下で68.0%。複勝は人気が低いほど下がる（1番人気84.9% → 9番人気以下60.5%）。人気薄ほど割に合わない形（本命・大穴バイアス）は、複勝ではっきり、単勝では弱く見える。</li>
+<li>第2群だけでは、1番人気の単勝 [68.9%, 101.3%]・6〜8番人気の単勝 [49.0%, 118.2%]・9番人気以下の単勝 [15.7%, 106.2%] の上限が100%を超えるが、区分が多く件数も少ないので、多重比較の範囲内として扱う。</li>
+</ul>
+<p>対象: 1152 レース（第1群 918・第2群 234）、出走馬 13029 頭。人気が欠けた馬 0。</p>
+<h3>全体（1,152レース）</h3>
+<h4>単勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>1152</td>
+<td>488（42.4%）</td>
+<td>78.9%</td>
+<td>[72.9%, 85.2%]</td>
+<td>78.6%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>1152</td>
+<td>230（20.0%）</td>
+<td>79.6%</td>
+<td>[70.8%, 89.1%]</td>
+<td>78.6%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>1153</td>
+<td>129（11.2%）</td>
+<td>66.5%</td>
+<td>[55.9%, 77.5%]</td>
+<td>65.4%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>2304</td>
+<td>161（7.0%）</td>
+<td>75.3%</td>
+<td>[61.1%, 91.0%]</td>
+<td>70.5%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>3394</td>
+<td>105（3.1%）</td>
+<td>76.6%</td>
+<td>[61.2%, 93.1%]</td>
+<td>73.0%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>3874</td>
+<td>40（1.0%）</td>
+<td>68.0%</td>
+<td>[45.6%, 90.7%]</td>
+<td>62.9%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。</p>
+<h4>複勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>1152</td>
+<td>818（71.0%）</td>
+<td>84.9%</td>
+<td>[81.5%, 88.4%]</td>
+<td>84.7%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>1152</td>
+<td>647（56.2%）</td>
+<td>82.7%</td>
+<td>[79.0%, 86.6%]</td>
+<td>82.4%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>1153</td>
+<td>503（43.6%）</td>
+<td>78.9%</td>
+<td>[73.5%, 84.0%]</td>
+<td>78.4%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>2304</td>
+<td>693（30.1%）</td>
+<td>73.9%</td>
+<td>[69.5%, 78.6%]</td>
+<td>73.3%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>3394</td>
+<td>549（16.2%）</td>
+<td>72.5%</td>
+<td>[66.6%, 78.4%]</td>
+<td>72.1%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>3874</td>
+<td>201（5.2%）</td>
+<td>60.5%</td>
+<td>[51.0%, 70.4%]</td>
+<td>58.3%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。
+複勝の表の「買った数」は、元の表の「買った数」の列（単勝・複勝で共通の1列）をそのまま載せた。</p>
+<h3>参考: 第1群（918レース）</h3>
+<h4>単勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>918</td>
+<td>383（41.7%）</td>
+<td>77.7%</td>
+<td>[71.3%, 84.5%]</td>
+<td>77.3%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>918</td>
+<td>185（20.2%）</td>
+<td>81.1%</td>
+<td>[70.5%, 92.6%]</td>
+<td>79.9%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>919</td>
+<td>107（11.6%）</td>
+<td>69.0%</td>
+<td>[56.5%, 82.0%]</td>
+<td>67.6%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>1835</td>
+<td>131（7.1%）</td>
+<td>77.2%</td>
+<td>[61.0%, 95.2%]</td>
+<td>71.1%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>2708</td>
+<td>81（3.0%）</td>
+<td>75.4%</td>
+<td>[57.3%, 94.3%]</td>
+<td>70.9%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>3074</td>
+<td>32（1.0%）</td>
+<td>70.9%</td>
+<td>[45.8%, 98.4%]</td>
+<td>64.5%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。</p>
+<h4>複勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>918</td>
+<td>653（71.1%）</td>
+<td>84.7%</td>
+<td>[81.1%, 88.5%]</td>
+<td>84.5%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>918</td>
+<td>515（56.1%）</td>
+<td>82.3%</td>
+<td>[78.1%, 86.8%]</td>
+<td>81.9%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>919</td>
+<td>401（43.6%）</td>
+<td>78.6%</td>
+<td>[73.3%, 84.2%]</td>
+<td>78.1%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>1835</td>
+<td>552（30.1%）</td>
+<td>73.2%</td>
+<td>[68.2%, 78.4%]</td>
+<td>72.8%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>2708</td>
+<td>437（16.1%）</td>
+<td>72.5%</td>
+<td>[66.3%, 78.9%]</td>
+<td>71.9%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>3074</td>
+<td>161（5.2%）</td>
+<td>60.8%</td>
+<td>[50.1%, 72.5%]</td>
+<td>58.0%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。
+複勝の表の「買った数」は、元の表の「買った数」の列（単勝・複勝で共通の1列）をそのまま載せた。</p>
+<h3>参考: 第2群（234レース）</h3>
+<h4>単勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>234</td>
+<td>105（44.9%）</td>
+<td>83.6%</td>
+<td>[68.9%, 101.3%]</td>
+<td>81.9%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>234</td>
+<td>45（19.2%）</td>
+<td>73.6%</td>
+<td>[58.9%, 90.6%]</td>
+<td>70.6%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>234</td>
+<td>22（9.4%）</td>
+<td>56.7%</td>
+<td>[35.2%, 80.5%]</td>
+<td>51.7%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>469</td>
+<td>30（6.4%）</td>
+<td>67.9%</td>
+<td>[46.3%, 89.3%]</td>
+<td>62.0%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>686</td>
+<td>24（3.5%）</td>
+<td>81.5%</td>
+<td>[49.0%, 118.2%]</td>
+<td>73.1%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>800</td>
+<td>8（1.0%）</td>
+<td>56.9%</td>
+<td>[15.7%, 106.2%]</td>
+<td>42.5%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。</p>
+<h4>複勝</h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>人気</th>
+<th>買った数</th>
+<th>的中（率）</th>
+<th>回収率</th>
+<th>95%区間</th>
+<th>最大1本を除く</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1番人気</td>
+<td>234</td>
+<td>165（70.5%）</td>
+<td>85.6%</td>
+<td>[78.1%, 92.4%]</td>
+<td>84.7%</td>
+</tr>
+<tr>
+<td>2番人気</td>
+<td>234</td>
+<td>132（56.4%）</td>
+<td>84.4%</td>
+<td>[75.5%, 93.8%]</td>
+<td>83.3%</td>
+</tr>
+<tr>
+<td>3番人気</td>
+<td>234</td>
+<td>102（43.6%）</td>
+<td>80.2%</td>
+<td>[66.1%, 93.5%]</td>
+<td>77.8%</td>
+</tr>
+<tr>
+<td>4〜5番人気</td>
+<td>469</td>
+<td>141（30.1%）</td>
+<td>76.9%</td>
+<td>[66.1%, 88.1%]</td>
+<td>73.9%</td>
+</tr>
+<tr>
+<td>6〜8番人気</td>
+<td>686</td>
+<td>112（16.3%）</td>
+<td>72.7%</td>
+<td>[58.7%, 86.9%]</td>
+<td>70.8%</td>
+</tr>
+<tr>
+<td>9番人気以下</td>
+<td>800</td>
+<td>40（5.0%）</td>
+<td>59.6%</td>
+<td>[40.6%, 79.0%]</td>
+<td>53.3%</td>
+</tr>
+</tbody>
+</table></div>
+<p class="note">注: 的中（率）は、当たった数（買った数に対する割合）。95%区間は、開催日を単位にしたブートストラップによる回収率の区間。最大1本を除く: 払戻が最も大きかった1本の払戻を除いて（買った数はそのまま）計算した回収率。1本の大穴で数字が膨らんでいないかを見るため。
+複勝の表の「買った数」は、元の表の「買った数」の列（単勝・複勝で共通の1列）をそのまま載せた。</p>
+<h2>記録（2026-11-13、ユーザー・レビュアー確認）</h2>
+<ul>
+<li>どの人気の区分も、単勝・複勝とも回収率100%未満。複勝では人気が低いほど回収率が下がる（本命・大穴バイアス）。</li>
+<li>第2群だけで区間の上限が100%を超えた3区分（1番人気・6〜8番人気・9番人気以下の単勝）は、多重比較の範囲内として扱う。</li>
+</ul>
+<footer>この頁は 探索_人気順位別の回収_結果_見やすい版.md（SHA-256 a74b78ead7e1ef1d1f66584c4aa511ab4ce70f4472f16b4643c210cced04d958）から作った。</footer>
+</body>
+</html>
