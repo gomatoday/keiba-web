@@ -39,6 +39,15 @@ button:disabled{opacity:.45;cursor:default}
 .hm th,.hm td{border:1px solid var(--line);padding:3px 5px;text-align:center;font-variant-numeric:tabular-nums}
 .hm th{font-weight:600;background:color-mix(in srgb,var(--mute) 10%,transparent)}
 .hm td.l{text-align:left}
+.hm th{cursor:pointer;user-select:none}
+.hm th.asc::after{content:" ▲";font-size:.7em}.hm th.desc::after{content:" ▼";font-size:.7em}
+.hm th:nth-child(1),.hm td:nth-child(1){position:sticky;left:0;z-index:1;min-width:2.8em;width:2.8em;background:var(--card)}
+.hm th:nth-child(2),.hm td:nth-child(2){position:sticky;left:2.8em;z-index:1;max-width:8.5em;overflow:hidden;text-overflow:ellipsis;background:var(--card);box-shadow:2px 0 0 var(--line)}
+.hm th:nth-child(1),.hm th:nth-child(2){background:color-mix(in srgb,var(--mute) 10%,var(--card))}
+.hm{border-collapse:separate;border-spacing:0}
+.hm th,.hm td{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.hm tr:first-child th{border-top:1px solid var(--line)}
+.hm th:first-child,.hm td:first-child{border-left:1px solid var(--line)}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 details{border-top:1px solid var(--line);padding:6px 0}
 summary{cursor:pointer;font-weight:600}
@@ -55,7 +64,7 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 </head>
 <body>
 <main>
-<h1>v5.0 見通し（自分用・参考）</h1>
+<h1>v5.0 見通し（自分用・参考）<span style="font-size:.7em;color:var(--mute);font-weight:400"> 最新版 v5.0-own-1</span></h1>
 <p class="sub">出走表の .txt（中身は HTML）を選ぶと、v5.0 第1段階のモデルで、各馬の人気の確率と想定オッズを出します。計算はこのブラウザの中だけで行い、ファイルはどこにも送りません。</p>
 
 <section>
@@ -75,9 +84,9 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 </section>
 
 <section>
-<h2>1. 係数のファイルを選ぶ</h2>
+<h2>1. 係数のファイル（v50_params.json）を選ぶ</h2>
 <div class="row"><input type="file" id="fPar" accept=".json,application/json"></div>
-<div id="parSt" class="note">stage1_params_55.json を選んでください（SHA-256 が 90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f と一致するときだけ使います）。</div>
+<div id="parSt" class="note">v50_params.json を選んでください（SHA-256 が 14a56677dd4c57b3297b7a0efc82388fad859021473954d50721358d82ab79a3 と一致するときだけ使います）。</div>
 </section>
 
 <section>
@@ -91,9 +100,9 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 
 <section>
 <h2>このページについて</h2>
-<p class="note">人気の確率 p = softmax(τ0·s)、τ0 = 0.4680。s は stage1_params_55.json（SHA-256 90b07936…。ページには入れず、開くたびに選ぶ）の係数による1頭のスコア。想定オッズ = 0.7856 ÷ p。
-抽出のコードは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">ページの版: v50-view-4 (2026-11-13)</p>
+<p class="note">計算は forecast_v50.py（SHA-256 232a748f…）1本で行う。係数は v50_params.json（SHA-256 14a56677…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
+人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
+<p class="note">ページの版: v5.0-own-1 (2026-11-13)</p>
 </section>
 </main>
 
@@ -2238,20 +2247,32 @@ def build_X(D, te_vals):
             out[a:b, k] = zfill(raw["te_" + f][a:b]); k += 1
     return np.round(out, 6)
 </script>
-<script type="text/plain" id="py-score"># -*- coding: utf-8 -*-
-"""v5.0 第1段階の見通し（表示用）。探索のスクリプト（explore_fav.py の group2）と同じ手順:
-抽出3の行（CSV と同じく文字列）→ 固定した6表の値 → design57.build_X → 55列 → s = X·w_market → p = softmax(τ0·s)、想定オッズ = R / p。"""
-import io, json, sys
+<script type="text/plain" id="py-forecast_v50"># -*- coding: utf-8 -*-
+"""forecast_v50.py  v5.0 自分用の見通し（最新版 v5.0-own-1。2026-11-13）
+
+1本で、出走表から次の2つを出す。
+  1. 人気の見通し（市場の予測）: v5.0 第1段階の m̂。55項目 X（design57.build_X、6表は固定）→ s = X·w_market
+     → 人気の確率 p = softmax(τ0·s)（τ0 = 0.4680）→ 想定オッズ = 0.7856 ÷ p。
+     表示用に、項目ごとの寄与（値×係数）からレースの平均を引いたものと、7つのまとまりごとの合計も出す（足すと s − s のレース平均）。
+  2. 能力計（v4.7）: 前5走を同じ重みで平均した7項目（着順・着差・位置・末脚・適性・時計・騎手）の「配点 × レース内の偏差」
+     （分析計算v4.7 のコードで計算した値。小数3桁）の合計。v4.7の勝率 = softmax(能力計 ＋ 逃げ補正)（脚質が逃げの馬だけ ＋0.9）。
+
+係数: v50_params.json（market = stage1_params_55.json の中身そのもの〔SHA-256 90b07936…〕、ability = v4.7 の設定の写し）。
+計算のコード: 抽出3のドライバ（driver3.py）と、v4.9 のコード4本（keiba_v47・feat_extract・v48_model・v49_model。変えない）、design57.py。
+探索・正式判定のスクリプト（explore_fav.py など）と同じ手順で s を作る。購入の根拠にはしない（自分用_方針_v3.md）。"""
+import io, json, hashlib, os, sys, math
 import numpy as np, pandas as pd
-sys.path.insert(0, "/v50")
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
 import design57 as DZ
+import driver3 as DR          # 抽出3のドライバ。読み込むと v4.9 のコード4本も読み込む
 
-P = json.loads(open("/v50/stage1_params_55.json", encoding="utf-8").read())
-TAU = P["tau0"]; W = np.array(P["w_market"]); COLS55 = P["cols"]; R_PAY = 0.7856
-KEEP = [i for i, c in enumerate(DZ.COLS57) if c in COLS55]
-assert [DZ.COLS57[i] for i in KEEP] == COLS55, "55列の名前と順番が合わない"
-assert "m_jk_course" not in COLS55 and "c7" not in COLS55
-
+E47 = DR.E47
+VERSION = "v5.0-own-1"
+MARKET_SHA = "90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f"
+R_PAY = 0.7856
 
 LAB = {"c1": "近走の着順（v4.7）", "c2": "近走の着差（v4.7）", "c3": "位置取りの変化（v4.7）", "c4": "上がり3Fの順位（v4.7）",
        "c5": "距離・場の適性（v4.7）", "c6": "持時計（v4.7）",
@@ -2275,54 +2296,101 @@ GRP = [("近走の成績（v4.7の6項目）", ["c1", "c2", "c3", "c4", "c5", "c
        ("今回の条件", ["cand1", "cand2", "cand3", "cand4", "cand5", "m_kg", "m_gen", "m_same_venue", "n_ddist"]),
        ("馬番の内外", ["cand%d" % k for k in range(6, 14)]),
        ("脚質・年齢など", ["n_age", "n_female", "n_l3r_last", "n_l3r_avg", "n_c1_last", "n_n_runs"])]
-assert sorted(c for _, cs in GRP for c in cs) == sorted(COLS55) and set(LAB) == set(COLS55)
-GIX = [[COLS55.index(c) for c in cs] for _, cs in GRP]
 
 
-def score(csv_text):
-    D = pd.read_csv(io.StringIO(csv_text), dtype=str, keep_default_na=False)
-    tv = {k: DZ.te_values(D, k, P["te"][k]) for k in DZ.TE_SRC}
-    miss = {k: int(sum(1 for n in D[DZ.TE_SRC[k]] if not n or n not in P["te"][k])) for k in DZ.TE_SRC}
-    X = DZ.build_X(D, tv)[:, KEEP]
-    s = X @ W
-    out = []
-    for rid in dict.fromkeys(D["race_id"]):
-        ix = np.where(D["race_id"].values == rid)[0]
-        sc = s[ix]; t = np.exp(TAU * (sc - sc.max())); p = t / t.sum()
-        # 表示用: 項目ごとの寄与（値×係数）から、レースの平均を引いたもの。足すと s − (s のレース平均) になる。
-        C = X[ix] * W; C = C - C.mean(axis=0)
-        G = np.column_stack([C[:, g].sum(axis=1) for g in GIX])
-        assert np.allclose(G.sum(axis=1), sc - sc.mean())
-        items = [[[LAB[COLS55[j]], float(C[i, j])] for j in np.argsort(-np.abs(C[i]))[:8] if abs(C[i, j]) >= 0.005] for i in range(len(ix))]
-        AB = np.column_stack([pd.to_numeric(D["c%d" % k].values[ix], errors="coerce") for k in range(1, 8)]).astype(float)
-        out.append({"race_id": rid, "ab": np.nan_to_num(AB).tolist(), "num": [int(x) for x in D["num"].values[ix]], "s": [float(x) for x in sc],
-                    "sc": [float(x) for x in sc - sc.mean()], "p": [float(x) for x in p], "odds": [float(R_PAY / x) for x in p],
-                    "groups": G.tolist(), "items": items})
-    return json.dumps({"races": out, "te_missing": miss, "gnames": [g for g, _ in GRP], "tau": TAU}, ensure_ascii=False)
-
-
-def info(path):
-    """表示用の馬名・騎手・会場など（keiba_v47 の読み取りをそのまま使う）。"""
+def load_params(path):
+    """v50_params.json を読む。market の中身が固定の stage1_params_55.json と同じか、ability の値が v4.7 のコードの設定と同じかを確かめる。"""
+    P = json.loads(open(path, encoding="utf-8").read())
+    mk, ab = P["market"], P["ability"]
+    got = hashlib.sha256(json.dumps(mk, ensure_ascii=False).encode("utf-8")).hexdigest()
+    if got != MARKET_SHA:
+        raise ValueError("market が固定の stage1_params_55.json と違う: " + got)
     E47.load_settings()
+    S = E47.SETTINGS
+    for k in ("scale", "recency", "nige_boost"):
+        if ab[k] != S[k]:
+            raise ValueError("ability.%s が v4.7 のコードの設定と違う" % k)
+    if any(ab["points"][k] != S["points"][k] for k in ab["points"]):
+        raise ValueError("ability.points が v4.7 のコードの設定と違う")
+    cols = mk["cols"]
+    keep = [i for i, c in enumerate(DZ.COLS57) if c in cols]
+    assert [DZ.COLS57[i] for i in keep] == cols, "55列の名前と順番が合わない"
+    assert "m_jk_course" not in cols and "c7" not in cols
+    assert sorted(c for _, cs in GRP for c in cs) == sorted(cols) and set(LAB) == set(cols)
+    return {"P": P, "mk": mk, "ab": ab, "W": np.array(mk["w_market"]), "TAU": mk["tau0"], "KEEP": keep,
+            "GIX": [[cols.index(c) for c in cs] for _, cs in GRP], "cols": cols}
+
+
+def _csv(rows):
+    """抽出3の行を、抽出3の CSV と同じ形の文字列にする（探索のスクリプトと同じく、文字列として読み込むため）。"""
+    def esc(v):
+        v = "" if v is None else str(v)
+        return '"' + v.replace('"', '""') + '"' if any(c in v for c in '",\n\r') else v
+    return "\r\n".join([",".join(DR.COLS)] + [",".join(esc(v) for v in r) for r in rows]) + "\r\n"
+
+
+def _softmax(u):
+    m = max(u); e = [math.exp(x - m) for x in u]; t = sum(e)
+    return [x / t for x in e]
+
+
+def _header(path):
+    """表示用: 会場・距離・頭数、馬名・騎手・脚質（keiba_v47 の読み取りをそのまま使う）。"""
     warns = []
     soup, raw = E47.make_soup(path)
     hdr = E47.parse_header(soup, raw, warns)
     horses = E47.parse_horses(soup, hdr, warns)
     try:
         styles = E47.build_features(horses, hdr, E47.SETTINGS["recency"])[1]
-        style_ja = [E47.STYLES[x] if x is not None else "不明" for x in styles]
+        sty = [E47.STYLES[x] if x is not None else "不明" for x in styles]
     except Exception:
-        style_ja = ["" for _ in horses]
-    return json.dumps({"style": style_ja, "nige_boost": E47.SETTINGS["nige_boost"], "venue": hdr.get("venue"), "dist": hdr.get("dist"), "surface": hdr.get("surface"), "course": hdr.get("course"),
-                       "heads": hdr.get("heads"), "horses": [{"num": h.get("num"), "name": h.get("name"), "jockey": h.get("jockey")} for h in horses]},
-                      ensure_ascii=False)
+        sty = ["" for _ in horses]
+    return hdr, {h.get("num"): {"name": h.get("name"), "jockey": h.get("jockey"), "style": s} for h, s in zip(horses, sty)}
+
+
+def forecast(path, rid, ST):
+    """1レース分。戻り値は辞書（JSON にできる形）。ST は load_params の戻り値。"""
+    st, msg, rows = DR.run(path, rid)
+    hdr, hz = _header(path)
+    out = {"version": VERSION, "race_id": rid, "state": st, "message": msg,
+           "venue": hdr.get("venue"), "surface": hdr.get("surface"), "dist": hdr.get("dist"), "heads": hdr.get("heads")}
+    if st != "normal":
+        return out
+    D = pd.read_csv(io.StringIO(_csv(rows)), dtype=str, keep_default_na=False)
+    mk = ST["mk"]
+    tv = {k: DZ.te_values(D, k, mk["te"][k]) for k in DZ.TE_SRC}
+    X = DZ.build_X(D, tv)[:, ST["KEEP"]]
+    s = X @ ST["W"]
+    t = np.exp(ST["TAU"] * (s - s.max())); p = t / t.sum()
+    C = X * ST["W"]; C = C - C.mean(axis=0)
+    G = np.column_stack([C[:, g].sum(axis=1) for g in ST["GIX"]])
+    assert np.allclose(G.sum(axis=1), s - s.mean())
+    cols = ST["cols"]
+    nums = [int(x) for x in D["num"].values]
+    AB = np.nan_to_num(np.column_stack([pd.to_numeric(D["c%d" % k], errors="coerce") for k in range(1, 8)]).astype(float))
+    U = AB.sum(axis=1)
+    boost = ST["ab"]["nige_boost"]
+    sty = [hz.get(n, {}).get("style", "") for n in nums]
+    p47 = _softmax([u + (boost if sy == "逃げ" else 0.0) for u, sy in zip(U, sty)])
+    out.update({
+        "horses": [{"num": n, "name": hz.get(n, {}).get("name", ""), "jockey": hz.get(n, {}).get("jockey", ""), "style": sy} for n, sy in zip(nums, sty)],
+        "market": {"s": s.tolist(), "sc": (s - s.mean()).tolist(), "p": p.tolist(), "odds": (R_PAY / p).tolist(), "tau": ST["TAU"],
+                   "gnames": [g for g, _ in GRP], "groups": G.tolist(),
+                   "items": [[[LAB[cols[j]], float(C[i, j])] for j in np.argsort(-np.abs(C[i]))[:8] if abs(C[i, j]) >= 0.005] for i in range(len(nums))],
+                   "te_missing": {k: int(sum(1 for n in D[DZ.TE_SRC[k]] if not n or n not in mk["te"][k])) for k in DZ.TE_SRC}},
+        "ability": {"items_ja": ST["ab"]["items_ja"], "parts": AB.tolist(), "total": U.tolist(), "p47": p47, "nige_boost": boost}})
+    return out
+
+
+def forecast_json(path, rid, ST):
+    return json.dumps(forecast(path, rid, ST), ensure_ascii=False)
 </script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v50-view-4 (2026-11-13)";
-let py = null, runFn = null, scoreFn = null, infoFn = null, COLS = null, parOK = false;
-const PSHA = "90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f";
+const VERSION = "v5.0-own-1 (2026-11-13)";
+let py = null, runFn = null, parOK = false;
+const PSHA = "14a56677dd4c57b3297b7a0efc82388fad859021473954d50721358d82ab79a3";
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -2337,10 +2405,10 @@ async function boot(){
     await py.loadPackage(["beautifulsoup4","lxml","numpy","pandas"]);
     py.FS.mkdirTree("/v49"); py.FS.mkdirTree("/v50");
     for (const n of ["keiba_v47","feat_extract","v48_model","v49_model"]) py.FS.writeFile("/v49/"+n+".py", $("py-"+n).textContent);
+    py.FS.writeFile("/v49/driver3.py", $("py-driver").textContent);
     py.FS.writeFile("/v50/design57.py", $("py-design57").textContent);
-    py.runPython($("py-driver").textContent);
-    runFn = py.globals.get("run"); infoFn = null;
-    COLS = py.globals.get("COLS").toJs();
+    py.FS.writeFile("/v50/forecast_v50.py", $("py-forecast_v50").textContent);
+    py.runPython("import sys\nsys.path.insert(0, '/v49')\nsys.path.insert(0, '/v50')\nimport forecast_v50 as F");
     $("boot").innerHTML = '<span class="ok">準備ができました。</span>';
     refresh();
   }catch(e){
@@ -2356,12 +2424,23 @@ $("fPar").addEventListener("change", async e => {
   const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
   if (h !== PSHA){ $("parSt").innerHTML = '<span class="bad">SHA-256 が一致しません（' + h.slice(0, 8) + '…）。固定した係数のファイルではないので使いません。</span>'; return; }
   while (!py) await new Promise(r => setTimeout(r, 300));
-  py.FS.writeFile("/v50/stage1_params_55.json", buf);
-  py.runPython($("py-score").textContent);
-  scoreFn = py.globals.get("score"); infoFn = py.globals.get("info");
+  py.FS.writeFile("/v50/v50_params.json", buf);
+  try { py.runPython("ST = F.load_params('/v50/v50_params.json')"); }
+  catch (err) { $("parSt").innerHTML = '<span class="bad">係数のファイルの確認で止まりました: ' + escH(err) + '</span>'; return; }
+  runFn = py.runPython("lambda path, rid: F.forecast_json(path, rid, ST)");
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
 });
 
+// 表の見出しを押すと、その列で並べ替える（もう一度押すと逆順）。
+document.addEventListener("click", e => {
+  const th = e.target.closest(".hm th"); if (!th) return;
+  const tb = th.closest("table").tBodies[0], i = [...th.parentNode.children].indexOf(th);
+  const dir = th.classList.contains("desc") ? 1 : th.classList.contains("asc") ? -1 : (i === 1 ? 1 : -1);
+  th.parentNode.querySelectorAll("th").forEach(x => x.classList.remove("asc", "desc")); th.classList.add(dir > 0 ? "asc" : "desc");
+  const key = tr => { const t = tr.children[i].textContent.trim(); const v = parseFloat(t.replace("−", "-").replace(/[+%]/g, "")); return isNaN(v) ? t : v; };
+  [...tb.rows].sort((a, b) => { const x = key(a), y = key(b);
+    return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "ja")) * dir; }).forEach(r => tb.appendChild(r));
+});
 const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 const pct = p => (p * 100 >= 10 ? (p * 100).toFixed(0) : (p * 100).toFixed(1)) + "%";
 const odd = o => (o >= 100 ? o.toFixed(0) : o.toFixed(1)) + "倍";
@@ -2376,16 +2455,17 @@ $("bRun").onclick = async () => {
     if (!rid){ sec.innerHTML = '<p class="bad">' + escH(f.name) + ': ファイル名がレースID（16桁）で始まっていません。</p>'; continue; }
     try{
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await f.arrayBuffer()));
-      const res = runFn("/tmp/race.txt", rid); const [st, msg, rows] = res.toJs(); res.destroy();
-      const inf = JSON.parse(infoFn("/tmp/race.txt"));
+      const o = JSON.parse(runFn("/tmp/race.txt", rid)); const st = o.state, msg = o.message;
+      const inf = { venue: o.venue, surface: o.surface, dist: o.dist, heads: o.heads, horses: o.horses || [], style: (o.horses || []).map(x => x.style),
+                    nige_boost: o.ability ? o.ability.nige_boost : 0 };
       const title = escH((inf.venue || "") + " " + Number(rid.slice(-2)) + "R　" + (inf.surface || "") + (inf.dist || "") + "m" + (inf.heads ? "・" + inf.heads + "頭" : ""));
       if (st !== "normal"){
         const why = {debut:"全頭が初出走のレースは対象外です", mixed:"初出走馬と経験馬が混在するレースは対象外です", stop:"停止", error:"エラー"}[st] || st;
         sec.innerHTML = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2><p class="bad">' + escH(why) + '</p>' + (msg ? '<pre>' + escH(msg) + '</pre>' : "");
         continue;
       }
-      const csv = [COLS.join(",")].concat(rows.map(r => r.map(escC).join(","))).join("\r\n") + "\r\n";
-      const sc = JSON.parse(scoreFn(csv)); const R = sc.races[0];
+      const M = o.market, sc = { gnames: M.gnames, tau: M.tau, te_missing: M.te_missing };
+      const R = { num: o.horses.map(x => x.num), s: M.s, sc: M.sc, p: M.p, odds: M.odds, groups: M.groups, items: M.items, ab: o.ability.parts };
       const byNum = Object.fromEntries(inf.horses.map(h => [h.num, h]));
       const ord = R.num.map((n, k) => k).sort((a, b) => R.p[b] - R.p[a] || R.num[a] - R.num[b]);
       const pmax = Math.max(...R.p);
@@ -2402,11 +2482,11 @@ $("bRun").onclick = async () => {
       const gmax = Math.max(0.3, ...R.groups.flat().map(Math.abs));
       const cell = v => { const a = Math.min(1, Math.abs(v) / gmax) * 0.55; const c = v >= 0 ? "31,122,77" : "179,38,30";
         return '<td style="background:rgba(' + c + ',' + a.toFixed(3) + ')">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</td>'; };
-      h += '<h3>分析の過程: どのまとまりが s を上げ下げしたか（レースの平均との差）</h3><div class="scroll"><table class="hm"><tr><th>順</th><th>馬</th>' +
-           SH.map((x, g) => '<th title="' + escH(GN[g]) + '">' + x + '</th>').join("") + '<th>合計</th></tr>';
+      h += '<h3>分析の過程: どのまとまりが s を上げ下げしたか（レースの平均との差）</h3><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th><th>予想順</th>' +
+           SH.map((x, g) => '<th title="' + escH(GN[g]) + '">' + x + '</th>').join("") + '<th>合計</th></tr></thead><tbody>';
       ord.forEach((k, r) => { const hz = byNum[R.num[k]] || {};
-        h += '<tr><td>' + (r + 1) + '</td><td class="l">' + R.num[k] + ' ' + escH(hz.name || "") + '</td>' + R.groups[k].map(cell).join("") + cell(R.sc[k]) + '</tr>'; });
-      h += '</table></div><p class="note">列の名前: ' + GN.map((g, i) => SH[i] + "＝" + escH(g)).join("、") + '。合計は s − (s のレース平均)。緑は人気を集める方向、赤は下げる方向。</p>';
+        h += '<tr><td>' + R.num[k] + '</td><td class="l">' + escH(hz.name || "") + '</td><td>' + (r + 1) + '</td>' + R.groups[k].map(cell).join("") + cell(R.sc[k]) + '</tr>'; });
+      h += '</tbody></table></div><p class="note">列の名前: ' + GN.map((g, i) => SH[i] + "＝" + escH(g)).join("、") + '。合計は s − (s のレース平均)。見出しを押すと、その列で並べ替えます。緑は人気を集める方向、赤は下げる方向。</p>';
       // 馬ごとの詳細
       const dv = (lab, v, m) => { const w = Math.min(50, Math.abs(v) / m * 50);
         return '<span>' + escH(lab) + '</span><span class="t"><i class="' + (v >= 0 ? "pos" : "neg") + '" style="' + (v >= 0 ? "left:50%" : "right:50%") + ';width:' + w.toFixed(1) + '%"></i></span><span class="v">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</span>'; };
@@ -2420,21 +2500,21 @@ $("bRun").onclick = async () => {
       });
       // 能力計（v4.7・前5走）: 馬番順
       const KN = ["着順", "着差", "位置", "末脚", "適性", "時計", "騎手"];
-      const AB = R.ab, U = AB.map(r => r.reduce((x, y) => x + y, 0));
+      const AB = R.ab, U = o.ability.total;
       const sty = R.num.map(n => { const j = inf.horses.findIndex(x => x.num === n); return j >= 0 ? (inf.style[j] || "") : ""; });
-      const ut = U.map((u, k) => u + (sty[k] === "逃げ" ? inf.nige_boost : 0)), um = Math.max(...ut), ue = ut.map(x => Math.exp(x - um)), us = ue.reduce((x, y) => x + y, 0);
+      const ue = o.ability.p47, us = 1;
       const urk = U.map((u, k) => 1 + U.filter((v, j) => v > u || (v === u && R.num[j] < R.num[k])).length);
       const amax = Math.max(0.2, ...AB.flat().map(Math.abs)), umax = Math.max(0.3, ...U.map(Math.abs));
       const cellA = (v, m) => { const a = Math.min(1, Math.abs(v) / m) * 0.55; const c = v >= 0 ? "31,122,77" : "179,38,30";
         return '<td style="background:rgba(' + c + ',' + a.toFixed(3) + ')">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</td>'; };
-      h += '<h2 class="part">能力計（v4.7・前5走から）<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><tr><th>馬番</th><th>馬名</th><th>脚質</th>' +
-           KN.map(x => '<th>' + x + '</th>').join("") + '<th>能力計</th><th>順位</th><th>v4.7勝率</th></tr>';
+      h += '<h2 class="part">能力計（v4.7・前5走から）<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th><th>脚質</th>' +
+           KN.map(x => '<th>' + x + '</th>').join("") + '<th>能力計</th><th>順位</th><th>v4.7勝率</th></tr></thead><tbody>';
       R.num.map((n, k) => k).sort((a, b) => R.num[a] - R.num[b]).forEach(k => { const hz = byNum[R.num[k]] || {};
         h += '<tr><td>' + R.num[k] + '</td><td class="l">' + escH(hz.name || "") + '</td><td>' + escH(sty[k]) + '</td>' + AB[k].map(v => cellA(v, amax)).join("") +
              cellA(U[k], umax) + '<td>' + urk[k] + '</td><td>' + pct(ue[k] / us) + '</td></tr>'; });
-      h += '</table></div><p class="note">能力計 = 7項目の合計。各項目は、前5走を同じ重みで平均した値をレースの中で偏差にし、配点（着順18・着差14・位置8・末脚15・適性14・時計6・騎手15）を掛けたもの（v4.7 のコードのまま）。' +
+      h += '</tbody></table></div><p class="note">能力計 = 7項目の合計。各項目は、前5走を同じ重みで平均した値をレースの中で偏差にし、配点（着順18・着差14・位置8・末脚15・適性14・時計6・騎手15）を掛けたもの（v4.7 のコードのまま）。' +
            'v4.7勝率 = softmax(能力計 ＋ 逃げ補正)。逃げ補正は脚質が逃げの馬だけ ＋' + inf.nige_boost + '。v4.7 はこの方式で検証し、回収率100%には届かなかった。' +
-           '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。</p>';
+           '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。見出しを押すと、その列で並べ替えます。</p>';
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
       sec.innerHTML = h;
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
