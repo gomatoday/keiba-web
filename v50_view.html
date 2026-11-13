@@ -33,6 +33,22 @@ button:disabled{opacity:.45;cursor:default}
 .bar{grid-column:3/5;display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--mute)}
 .bar i{display:block;height:8px;border-radius:4px;background:var(--bar)}
 .legend{display:flex;justify-content:space-between;font-size:.78rem;color:var(--mute);margin-bottom:2px}
+.steps{margin:4px 0 0;padding-left:1.3em;font-size:.88rem}.steps li{margin:2px 0}
+.hm{border-collapse:collapse;font-size:.78rem;white-space:nowrap;margin-top:6px}
+.hm th,.hm td{border:1px solid var(--line);padding:3px 5px;text-align:center;font-variant-numeric:tabular-nums}
+.hm th{font-weight:600;background:color-mix(in srgb,var(--mute) 10%,transparent)}
+.hm td.l{text-align:left}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+details{border-top:1px solid var(--line);padding:6px 0}
+summary{cursor:pointer;font-weight:600}
+.dv{display:grid;grid-template-columns:minmax(7em,40%) 1fr 3.4em;gap:3px 8px;align-items:center;font-size:.82rem;margin:4px 0}
+.dv .t{position:relative;height:10px;background:color-mix(in srgb,var(--mute) 12%,transparent);border-radius:3px}
+.dv .t::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--mute)}
+.dv .t i{position:absolute;top:0;bottom:0;border-radius:3px}
+.dv .v{text-align:right;font-variant-numeric:tabular-nums}
+.pos{background:#1f7a4d}.neg{background:#b3261e}
+.calc{font-size:.82rem;margin:6px 0 0;padding:6px 8px;border-radius:6px;background:color-mix(in srgb,var(--mute) 8%,transparent)}
+h3{font-size:.9rem;margin:12px 0 2px}
 pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute) 10%,transparent);border-radius:8px;padding:8px 10px;margin:8px 0 0}
 </style>
 </head>
@@ -44,6 +60,17 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <section>
 <div class="caution">参考の表示です。自分用で正式判定に合格した購入の候補はまだないので、これを買う根拠にはしません（自分用_方針_v3.md）。想定オッズは確定オッズと平均でおよそ1.9倍ずれます（第2群・後付けの出走表での値）。</div>
 <div id="boot" class="note">計算の準備をしています（初回は1〜2分かかります）…</div>
+</section>
+
+<section>
+<h2>見通しの作り方</h2>
+<ol class="steps">
+<li>出走表から、馬ごとに55の項目を読み取る（近走の着順・人気、騎手、馬番など）。多くの項目は、そのレースの中での偏差（平均との差）にする。</li>
+<li>項目ごとに「値 × 係数」を計算して足し、1頭のスコア s にする。係数は、過去のレースで「どの馬が人気になったか」に合わせて決めたもの。</li>
+<li>人気の確率 p = softmax(τ0 × s)（τ0 = 0.4680）。s が高い馬ほど p が大きく、レースの全馬で足すと 100%。</li>
+<li>想定オッズ = 0.7856 ÷ p（0.7856 は単勝の実質の払戻率）。</li>
+</ol>
+<p class="note">このモデルが予想しているのは「強さ」ではなく「人気になりやすさ」です。下の「分析の過程」では、各馬の s を、そのレースの平均と比べて、どの項目のまとまりが上げ下げしたかに分けて示します（＋が人気を集める方向、−が人気を下げる方向）。</p>
 </section>
 
 <section>
@@ -65,7 +92,7 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">人気の確率 p = softmax(τ0·s)、τ0 = 0.4680。s は stage1_params_55.json（SHA-256 90b07936…。ページには入れず、開くたびに選ぶ）の係数による1頭のスコア。想定オッズ = 0.7856 ÷ p。
 抽出のコードは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">ページの版: v50-view-2 (2026-11-13)</p>
+<p class="note">ページの版: v50-view-3 (2026-11-13)</p>
 </section>
 </main>
 
@@ -2225,6 +2252,32 @@ assert [DZ.COLS57[i] for i in KEEP] == COLS55, "55列の名前と順番が合わ
 assert "m_jk_course" not in COLS55 and "c7" not in COLS55
 
 
+LAB = {"c1": "近走の着順（v4.7）", "c2": "近走の着差（v4.7）", "c3": "位置取りの変化（v4.7）", "c4": "上がり3Fの順位（v4.7）",
+       "c5": "距離・場の適性（v4.7）", "c6": "持時計（v4.7）",
+       "cand1": "前走から20日以内", "cand2": "60日以上の休み明け", "cand3": "乗り替わり", "cand4": "斤量の増減", "cand5": "南関東の外からの転入初戦",
+       "cand6": "馬番の内外（浦和・1300m以下）", "cand7": "馬番の内外（浦和・1300m超）", "cand8": "馬番の内外（船橋・1200m以下）", "cand9": "馬番の内外（船橋・1200m超）",
+       "cand10": "馬番の内外（大井・1200m以下）", "cand11": "馬番の内外（大井・1200m超）", "cand12": "馬番の内外（川崎・1200m以下）", "cand13": "馬番の内外（川崎・1200m超）",
+       "cand14": "近走の平均の人気（相対）", "cand15": "前走の人気と着順のずれ",
+       "m_pop_last": "前走の人気（相対）", "m_pop_prev": "2走前の人気（相対）", "m_lnpop_last": "前走の人気（log）", "m_pop_min": "近走でいちばん高い人気",
+       "m_fin_last": "前走の着順（相対）", "m_win_last": "前走1着", "m_top3_last": "前走3着以内", "m_fin_best": "近走でいちばん良い着順", "m_mg_last": "前走の着差",
+       "m_jk_ret_win": "騎手の単勝回収率", "m_hs_ret_win": "馬の単勝回収率", "m_TE_j": "騎手の人気の集まりやすさ", "m_TE_t": "調教師の人気の集まりやすさ",
+       "m_kg": "斤量", "m_gen": "減量騎手", "m_same_venue": "前走と同じ場", "m_finP": "2走前の着順（相対）", "m_winP": "2走前1着",
+       "m_popL_x_finP": "前走の人気×2走前の着順", "m_popL_x_winP": "前走の人気×2走前1着", "m_popL_x_top3P": "前走の人気×2走前3着以内",
+       "m_fin_decay": "近走の着順（新しい走ほど重く）", "m_popL_x_finL": "前走の人気×前走の着順",
+       "n_age": "年齢", "n_female": "牝馬", "n_l3r_last": "前走の上がりの順位", "n_l3r_avg": "近走の上がりの順位の平均", "n_c1_last": "前走の最初のコーナーの位置",
+       "n_ddist": "前走からの距離の変化", "n_n_runs": "出走した回数",
+       "te_sire": "父の人気の集まりやすさ", "te_bms": "母の父の人気の集まりやすさ", "te_owner": "馬主の人気の集まりやすさ", "te_breeder": "生産者の人気の集まりやすさ"}
+GRP = [("近走の成績（v4.7の6項目）", ["c1", "c2", "c3", "c4", "c5", "c6"]),
+       ("近走の着順・着差", ["m_fin_last", "m_win_last", "m_top3_last", "m_fin_best", "m_mg_last", "m_finP", "m_winP", "m_fin_decay"]),
+       ("近走の人気", ["m_pop_last", "m_pop_prev", "m_lnpop_last", "m_pop_min", "cand14", "cand15", "m_popL_x_finP", "m_popL_x_winP", "m_popL_x_top3P", "m_popL_x_finL"]),
+       ("騎手・厩舎・血統・馬主", ["m_TE_j", "m_TE_t", "te_sire", "te_bms", "te_owner", "te_breeder", "m_jk_ret_win", "m_hs_ret_win"]),
+       ("今回の条件", ["cand1", "cand2", "cand3", "cand4", "cand5", "m_kg", "m_gen", "m_same_venue", "n_ddist"]),
+       ("馬番の内外", ["cand%d" % k for k in range(6, 14)]),
+       ("脚質・年齢など", ["n_age", "n_female", "n_l3r_last", "n_l3r_avg", "n_c1_last", "n_n_runs"])]
+assert sorted(c for _, cs in GRP for c in cs) == sorted(COLS55) and set(LAB) == set(COLS55)
+GIX = [[COLS55.index(c) for c in cs] for _, cs in GRP]
+
+
 def score(csv_text):
     D = pd.read_csv(io.StringIO(csv_text), dtype=str, keep_default_na=False)
     tv = {k: DZ.te_values(D, k, P["te"][k]) for k in DZ.TE_SRC}
@@ -2235,9 +2288,15 @@ def score(csv_text):
     for rid in dict.fromkeys(D["race_id"]):
         ix = np.where(D["race_id"].values == rid)[0]
         sc = s[ix]; t = np.exp(TAU * (sc - sc.max())); p = t / t.sum()
+        # 表示用: 項目ごとの寄与（値×係数）から、レースの平均を引いたもの。足すと s − (s のレース平均) になる。
+        C = X[ix] * W; C = C - C.mean(axis=0)
+        G = np.column_stack([C[:, g].sum(axis=1) for g in GIX])
+        assert np.allclose(G.sum(axis=1), sc - sc.mean())
+        items = [[[LAB[COLS55[j]], float(C[i, j])] for j in np.argsort(-np.abs(C[i]))[:8] if abs(C[i, j]) >= 0.005] for i in range(len(ix))]
         out.append({"race_id": rid, "num": [int(x) for x in D["num"].values[ix]], "s": [float(x) for x in sc],
-                    "p": [float(x) for x in p], "odds": [float(R_PAY / x) for x in p]})
-    return json.dumps({"races": out, "te_missing": miss})
+                    "sc": [float(x) for x in sc - sc.mean()], "p": [float(x) for x in p], "odds": [float(R_PAY / x) for x in p],
+                    "groups": G.tolist(), "items": items})
+    return json.dumps({"races": out, "te_missing": miss, "gnames": [g for g, _ in GRP], "tau": TAU}, ensure_ascii=False)
 
 
 def info(path):
@@ -2254,7 +2313,7 @@ def info(path):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v50-view-2 (2026-11-13)";
+const VERSION = "v50-view-3 (2026-11-13)";
 let py = null, runFn = null, scoreFn = null, infoFn = null, COLS = null, parOK = false;
 const PSHA = "90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f";
 const $ = id => document.getElementById(id);
@@ -2331,6 +2390,27 @@ $("bRun").onclick = async () => {
       });
       const miss = Object.entries(sc.te_missing).filter(([k, v]) => v > 0).map(([k, v]) => ({j:"騎手",t:"調教師",sire:"父",bms:"母父",owner:"馬主",breeder:"生産者"}[k] + " " + v + "頭"));
       h += '<p class="note">バーと % は人気の確率（予想1番人気を最大の長さにしている）。' + (miss.length ? "人気の集まりやすさの表にない名前（0.5 とした）: " + escH(miss.join("、")) + "。" : "") + '</p>';
+      // 分析の過程: まとまりごとの寄与の一覧（色の濃さ＝大きさ）
+      const GN = sc.gnames, SH = ["近走成績", "着順着差", "人気", "騎手血統", "条件", "馬番", "脚質等"];
+      const gmax = Math.max(0.3, ...R.groups.flat().map(Math.abs));
+      const cell = v => { const a = Math.min(1, Math.abs(v) / gmax) * 0.55; const c = v >= 0 ? "31,122,77" : "179,38,30";
+        return '<td style="background:rgba(' + c + ',' + a.toFixed(3) + ')">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</td>'; };
+      h += '<h3>分析の過程: どのまとまりが s を上げ下げしたか（レースの平均との差）</h3><div class="scroll"><table class="hm"><tr><th>順</th><th>馬</th>' +
+           SH.map((x, g) => '<th title="' + escH(GN[g]) + '">' + x + '</th>').join("") + '<th>合計</th></tr>';
+      ord.forEach((k, r) => { const hz = byNum[R.num[k]] || {};
+        h += '<tr><td>' + (r + 1) + '</td><td class="l">' + R.num[k] + ' ' + escH(hz.name || "") + '</td>' + R.groups[k].map(cell).join("") + cell(R.sc[k]) + '</tr>'; });
+      h += '</table></div><p class="note">列の名前: ' + GN.map((g, i) => SH[i] + "＝" + escH(g)).join("、") + '。合計は s − (s のレース平均)。緑は人気を集める方向、赤は下げる方向。</p>';
+      // 馬ごとの詳細
+      const dv = (lab, v, m) => { const w = Math.min(50, Math.abs(v) / m * 50);
+        return '<span>' + escH(lab) + '</span><span class="t"><i class="' + (v >= 0 ? "pos" : "neg") + '" style="' + (v >= 0 ? "left:50%" : "right:50%") + ';width:' + w.toFixed(1) + '%"></i></span><span class="v">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</span>'; };
+      ord.forEach((k, r) => { const hz = byNum[R.num[k]] || {};
+        const im = Math.max(0.2, ...R.items[k].map(x => Math.abs(x[1])));
+        h += '<details><summary>' + (r + 1) + '. ' + R.num[k] + ' ' + escH(hz.name || "") + '（' + pct(R.p[k]) + '・' + odd(R.odds[k]) + '）</summary>';
+        h += '<h3>まとまりごと</h3><div class="dv">' + R.groups[k].map((v, g) => dv(GN[g], v, gmax)).join("") + '</div>';
+        h += '<h3>効きの大きい項目（上位8つまで）</h3><div class="dv">' + R.items[k].map(x => dv(x[0], x[1], im)).join("") + '</div>';
+        h += '<div class="calc">スコア s のレース平均との差 ' + (R.sc[k] >= 0 ? "+" : "−") + Math.abs(R.sc[k]).toFixed(2) + ' → τ0（' + sc.tau.toFixed(3) + '）を掛けて全馬で softmax → 人気の確率 ' + pct(R.p[k]) +
+             ' → 想定オッズ 0.7856 ÷ ' + R.p[k].toFixed(4) + ' = ' + odd(R.odds[k]) + '</div></details>';
+      });
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
       sec.innerHTML = h;
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
