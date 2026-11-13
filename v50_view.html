@@ -102,7 +102,7 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 d2723396…）1本で行う。係数は v50_params.json（SHA-256 b34d41c2…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">ページの版: v5.0-own-2 (2026-11-13)</p>
+<p class="note">ページの版: v5.0-own-2・表示2 (2026-11-13)</p>
 </section>
 </main>
 
@@ -2420,7 +2420,7 @@ def forecast_json(path, rid, ST):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-2 (2026-11-13)";
+const VERSION = "v5.0-own-2・表示2 (2026-11-13)";
 let py = null, runFn = null, parOK = false;
 const PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
 const $ = id => document.getElementById(id);
@@ -2463,6 +2463,27 @@ $("fPar").addEventListener("change", async e => {
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
 });
 
+// 網掛け: 馬名より右の数字の列ごとに、いちばん良い馬を赤、いちばん悪い馬を青、間は列の中の順位に応じたグラデーション。
+// 「予想順」「順位」は小さいほど良い。ほかは大きいほど良い。数字でない列（脚質など）は塗らない。
+const LOWER_BETTER = ["予想順", "順位"];
+function shade(root){
+  root.querySelectorAll("table.hm").forEach(tb => {
+    const heads = [...tb.tHead.rows[0].cells].map(c => c.textContent.trim());
+    const rows = [...tb.tBodies[0].rows];
+    for (let i = 2; i < heads.length; i++){
+      const v = rows.map(r => parseFloat(r.cells[i].textContent.trim().replace("−", "-").replace(/[+%]/g, "")));
+      if (v.some(isNaN)) continue;
+      const low = LOWER_BETTER.includes(heads[i]), n = v.length;
+      // 列の中での順位で色を決める（同じ値は同じ順位の平均）。t=1 がいちばん良い、t=0 がいちばん悪い。
+      const rk = v.map(x => { const better = v.filter(y => low ? y < x : y > x).length, same = v.filter(y => y === x).length; return better + (same - 1) / 2; });
+      rows.forEach((r, k) => {
+        const t = n > 1 ? 1 - rk[k] / (n - 1) : 0.5;
+        const a = Math.abs(t - 0.5) * 2 * 0.6, c = t >= 0.5 ? "225,45,45" : "45,95,225";
+        r.cells[i].style.background = "rgba(" + c + "," + a.toFixed(3) + ")";
+      });
+    }
+  });
+}
 // 表の見出しを押すと、その列で並べ替える（もう一度押すと逆順）。
 document.addEventListener("click", e => {
   const th = e.target.closest(".hm th"); if (!th) return;
@@ -2504,11 +2525,11 @@ $("bRun").onclick = async () => {
         nums.map((n, k) => k).sort((x, y) => nums[x] - nums[y]).forEach(k => {
           h += '<tr><td>' + nums[k] + '</td><td class="l">' + escH((byN[nums[k]] || {}).name || "") + '</td>' + B.parts[k].map(v => cl(v, am)).join("") +
                cl(U[k], um) + '<td>' + rk[k] + '</td><td>' + pct(B.p_win[k]) + '</td></tr>'; });
-        h += '</tbody></table></div><p class="note">全馬が初出走のため、近走・脚質は使わず、v4.7 の新馬モード（分析計算v4.7 のコードのまま）で採点。各項目は、値をレースの中で偏差にし、配点（' +
+        h += '</tbody></table></div><p class="note">全馬が初出走のため、近走・脚質は使わず、v4.7 の新馬モード（分析計算v4.7 のコードのまま）で採点。網掛けは列ごとに、いちばん良い馬が赤、いちばん悪い馬が青。各項目は、値をレースの中で偏差にし、配点（' +
              B.items_ja.map((x, i) => escH(x) + Object.values(B.points)[i]).join("・") + '）×能力差倍率' + B.scale + 'を掛けたもの。能力計はその合計、v4.7勝率 = softmax(能力計)（逃げ補正なし）。' +
              '能試時計は、日付と距離がいちばん多い組と同じ馬だけを比べる（ほかは0）。取れない値は0（中立）。見出しを押すと、その列で並べ替えます。</p>';
         if (B.warnings && B.warnings.length) h += '<pre>読み取りの警告: ' + escH(B.warnings.join("；")) + '</pre>';
-        sec.innerHTML = h; continue;
+        sec.innerHTML = h; shade(sec); continue;
       }
       if (st !== "normal"){
         const why = {debut:"全頭が初出走のレースは対象外です", mixed:"初出走馬と経験馬が混在するレースは対象外です", stop:"停止", error:"エラー"}[st] || st;
@@ -2537,7 +2558,7 @@ $("bRun").onclick = async () => {
            SH.map((x, g) => '<th title="' + escH(GN[g]) + '">' + x + '</th>').join("") + '<th>合計</th></tr></thead><tbody>';
       ord.forEach((k, r) => { const hz = byNum[R.num[k]] || {};
         h += '<tr><td>' + R.num[k] + '</td><td class="l">' + escH(hz.name || "") + '</td><td>' + (r + 1) + '</td>' + R.groups[k].map(cell).join("") + cell(R.sc[k]) + '</tr>'; });
-      h += '</tbody></table></div><p class="note">列の名前: ' + GN.map((g, i) => SH[i] + "＝" + escH(g)).join("、") + '。合計は s − (s のレース平均)。見出しを押すと、その列で並べ替えます。緑は人気を集める方向、赤は下げる方向。</p>';
+      h += '</tbody></table></div><p class="note">列の名前: ' + GN.map((g, i) => SH[i] + "＝" + escH(g)).join("、") + '。合計は s − (s のレース平均)。見出しを押すと、その列で並べ替えます。網掛けは列ごとに、いちばん人気を集める方向の馬が赤、いちばん下げる方向の馬が青。</p>';
       // 馬ごとの詳細
       const dv = (lab, v, m) => { const w = Math.min(50, Math.abs(v) / m * 50);
         return '<span>' + escH(lab) + '</span><span class="t"><i class="' + (v >= 0 ? "pos" : "neg") + '" style="' + (v >= 0 ? "left:50%" : "right:50%") + ';width:' + w.toFixed(1) + '%"></i></span><span class="v">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</span>'; };
@@ -2563,11 +2584,11 @@ $("bRun").onclick = async () => {
       R.num.map((n, k) => k).sort((a, b) => R.num[a] - R.num[b]).forEach(k => { const hz = byNum[R.num[k]] || {};
         h += '<tr><td>' + R.num[k] + '</td><td class="l">' + escH(hz.name || "") + '</td><td>' + escH(sty[k]) + '</td>' + AB[k].map(v => cellA(v, amax)).join("") +
              cellA(U[k], umax) + '<td>' + urk[k] + '</td><td>' + pct(ue[k] / us) + '</td></tr>'; });
-      h += '</tbody></table></div><p class="note">能力計 = 7項目の合計。各項目は、前5走を同じ重みで平均した値をレースの中で偏差にし、配点（着順18・着差14・位置8・末脚15・適性14・時計6・騎手15）を掛けたもの（v4.7 のコードのまま）。' +
+      h += '</tbody></table></div><p class="note">網掛けは列ごとに、いちばん良い馬が赤、いちばん悪い馬が青（順位は1位が赤）。能力計 = 7項目の合計。各項目は、前5走を同じ重みで平均した値をレースの中で偏差にし、配点（着順18・着差14・位置8・末脚15・適性14・時計6・騎手15）を掛けたもの（v4.7 のコードのまま）。' +
            'v4.7勝率 = softmax(能力計 ＋ 逃げ補正)。逃げ補正は脚質が逃げの馬だけ ＋' + inf.nige_boost + '。v4.7 はこの方式で検証し、回収率100%には届かなかった。' +
            '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。見出しを押すと、その列で並べ替えます。</p>';
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
-      sec.innerHTML = h;
+      sec.innerHTML = h; shade(sec);
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
   }
   $("status").textContent = "終わりました（" + files.length + " レース）。"; $("bRun").disabled = false;
