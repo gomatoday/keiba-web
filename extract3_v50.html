@@ -49,7 +49,7 @@
       <button id="bRun" disabled>CSVを作る</button>
       <button class="sec" id="bStop" disabled>途中で止める</button>
     </div>
-    <p class="note">1レースおよそ1〜3秒です。計算中はこのタブを閉じないでください（別のタブを見ていても進みます）。</p>
+    <p class="note">1レースおよそ1〜3秒です。計算中はこのタブを閉じないでください（このタブを裏にしても速さは変わらないようにしてあります）。</p>
     <progress id="prog" value="0" max="1" hidden></progress>
     <div id="status" class="note"></div>
   </section>
@@ -2141,7 +2141,7 @@ def run(path, rid):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "extract3-v5.0-2 (2026-11-13)";
+const VERSION = "extract3-v5.0-3 (2026-11-13)";
 const RACE = new Map(); const ODD = [];
 let py = null, runFn = null, COLS = null, FP = null, stopFlag = false;
 let csvText = "", repText = "";
@@ -2178,6 +2178,8 @@ async function boot() {
 }
 boot();
 
+// 画面の更新のために処理を一瞬ゆずる。setTimeout は裏のタブで1分に1回まで遅くされるため、MessageChannel を使う。
+const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 const esc = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
 
 $("bStop").onclick = () => { stopFlag = true; $("bStop").disabled = true; };
@@ -2205,10 +2207,10 @@ $("bRun").onclick = async () => {
       for (const row of rows) { lines.push(row.map(esc).join(",")); nH++; }
     } catch (e) { cnt.error++; notes.push(rid + ": 例外 " + e); }
     done = i + 1; prog.value = done;
-    if (i % 2 === 0 || i === ids.length - 1) {
+    if (i % 5 === 0 || i === ids.length - 1) {
       const el = (performance.now() - t0) / 1000, eta = el / done * (ids.length - done);
       $("status").textContent = done + " / " + ids.length + " レース（経過 " + Math.round(el / 60) + "分・残り約 " + Math.ceil(eta / 60) + "分）";
-      await new Promise(r => setTimeout(r, 0));
+      await yieldNow();
     }
   }
   const sec = ((performance.now() - t0) / 1000).toFixed(0);
