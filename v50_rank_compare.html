@@ -2530,7 +2530,7 @@ $("bRun").onclick = async () => {
     if (i % 25 === 0) gc();
     if (sealed(rid)){ cnt.sealed++; continue; }
     const r = await doRace(rid);
-    if (!r.ok && r.retry){ again.push([rid, r.msg]); continue; }
+    if (!r.ok && r.retry){ again.push([rid, r.msg]); log(rid + ": " + r.msg + "（最後にもう一度計算します）"); continue; }
     if (!r.ok && r.msg) log(rid + ": " + r.msg);
     tally(r);
   }
