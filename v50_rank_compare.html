@@ -71,7 +71,7 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <p class="note">予想人気の順位: forecast_v50.py（SHA-256 d2723396…）の人気の確率 p の大きい順。能力計の順位: 同じく v4.7 の能力計（7項目の合計。騎手を除く設定では6項目の合計）の大きい順。どちらも同じ値は馬番の小さい方を上。
 順位は、結果ページにいる馬（出走した馬）だけでつけ直す。実際の人気は結果ページの人気。着順が数字でない馬（競走中止など）は、勝ち・連対・3着以内に数えず、相対着順の平均からは除く。
 全馬が初出走のレース・混在のレース・読み取りで止まったレースは集計しない。結果ページの読み取りは extract_result_only_v50.html の parseResult をそのまま使う。</p>
-<p class="note">ページの版: rank-compare-1 (2026-11-13)</p>
+<p class="note">ページの版: rank-compare-2 (2026-11-15)</p>
 </section>
 </main>
 
@@ -2389,7 +2389,7 @@ def forecast_json(path, rid, ST):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "rank-compare-1 (2026-11-13)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
+const VERSION = "rank-compare-2 (2026-11-15)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
 const $ = id => document.getElementById(id);
 const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
 const txt = el => el ? norm(el.textContent) : "";
@@ -2495,18 +2495,24 @@ $("bRun").onclick = async () => {
   const cnt = { pair: rids.length, card_only: [...cards.keys()].filter(r => !res.has(r)).length, res_only: [...res.keys()].filter(r => !cards.has(r)).length,
                 sealed: 0, debut: 0, mixed: 0, other: 0, nores: 0, used: 0 };
   let i = 0;
-  for (const rid of rids){
-    i++; if (i % 3 === 1){ $("status").textContent = i + " / " + rids.length + " レース目を計算しています…"; await yieldNow(); }
-    if (sealed(rid)){ cnt.sealed++; continue; }
+  /* rank-compare-2: 1レース分の処理を関数にし、読み取りで止まったレースは最後にもう一度だけ計算し直す。
+     25レースごとに Python のごみ集め（gc.collect）を行う。計算の中身（Python のコード・集計）は変えない。 */
+  const gc = () => { try { py.runPython("import gc; gc.collect()"); } catch (e) {} };
+  const doRace = async rid => {
+    /* 戻り値: { ok:true } または { kind, msg, retry }。retry=true は、もう一度試す価値のある止まり方 */
     try{
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await cards.get(rid).arrayBuffer()));
       const o = JSON.parse(runFn("/tmp/race.txt", rid));
-      if (o.state !== "normal"){ if (o.state === "debut") cnt.debut++; else if (o.state === "mixed") cnt.mixed++; else { cnt.other++; log(rid + ": " + o.state + " " + (o.message || "")); } continue; }
+      if (o.state !== "normal"){
+        if (o.state === "debut") return { kind: "debut" };
+        if (o.state === "mixed") return { kind: "mixed" };
+        return { kind: "other", msg: o.state + " " + (o.message || ""), retry: o.state === "error" || o.state === "stop" };
+      }
       const R = parseResult(await readHtml(res.get(rid)));
-      if (!R.rows.size){ cnt.nores++; log(rid + ": 結果の表を読めない"); continue; }
+      if (!R.rows.size) return { kind: "nores", msg: "結果の表を読めない", retry: true };
       const H = o.horses.map((h, k) => ({ num: h.num, name: h.name, p: o.market.p[k], U: o.ability.total[k], Uj: o.ability.total[k] - o.ability.parts[k][6], rr: R.rows.get(String(h.num)) }))
                         .filter(h => h.rr && h.rr.fin !== "" && !/取消|除外/.test(h.rr.fin));
-      if (H.length < 3){ cnt.nores++; log(rid + ": 出走した馬が3頭未満"); continue; }
+      if (H.length < 3) return { kind: "nores", msg: "出走した馬が3頭未満", retry: false };
       const rank = key => { const s = [...H].sort((a, b) => b[key] - a[key] || a.num - b.num); const m = new Map(s.map((h, j) => [h.num, j + 1])); return h => m.get(h.num); };
       const mr = rank("p"), ar = rank("U"), arj = rank("Uj");
       const n = H.length;
@@ -2514,11 +2520,34 @@ $("bRun").onclick = async () => {
         const fin = /^\d+$/.test(h.rr.fin) ? +h.rr.fin : null, pop = /^\d+$/.test(h.rr.pop) ? +h.rr.pop : null;
         ROWS.push({ rid, n, num: h.num, name: h.name, mrank: mr(h), arank: ar(h), arank_nj: arj(h), pop, fin });
       }
-      cnt.used++; RACES++;
-    }catch(e){ cnt.other++; log(rid + ": 例外 " + e); }
+      return { ok: true };
+    }catch(e){ return { kind: "other", msg: "例外 " + e, retry: true }; }
+  };
+  const tally = r => { if (r.ok){ cnt.used++; RACES++; } else cnt[r.kind]++; };
+  const again = [];
+  for (const rid of rids){
+    i++; if (i % 3 === 1){ $("status").textContent = i + " / " + rids.length + " レース目を計算しています…"; await yieldNow(); }
+    if (i % 25 === 0) gc();
+    if (sealed(rid)){ cnt.sealed++; continue; }
+    const r = await doRace(rid);
+    if (!r.ok && r.retry){ again.push([rid, r.msg]); continue; }
+    if (!r.ok && r.msg) log(rid + ": " + r.msg);
+    tally(r);
+  }
+  cnt.retried = again.length; cnt.recovered = 0;
+  if (again.length){
+    log("読み取りで止まった " + again.length + " レースを、もう一度計算します。");
+    gc(); await yieldNow();
+    for (const [rid, msg1] of again){
+      $("status").textContent = "止まったレースを計算し直しています（" + rid + "）…"; await yieldNow();
+      const r = await doRace(rid);
+      if (r.ok) { cnt.recovered++; log(rid + ": 1回目は止まった（" + msg1 + "）が、2回目で計算できた"); }
+      else log(rid + ": " + (r.msg || r.kind) + "（2回目も止まった）");
+      tally(r);
+    }
   }
   $("status").innerHTML = '終わりました。組になったレース ' + cnt.pair + '（出走表だけ ' + cnt.card_only + '・結果だけ ' + cnt.res_only + '）→ 集計 <b>' + cnt.used + '</b> レース。' +
-    '除いたもの: 第3群の期間 ' + cnt.sealed + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。';
+    '除いたもの: 第3群の期間 ' + cnt.sealed + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。' + (cnt.retried ? '（止まって計算し直したレース ' + cnt.retried + '・うち2回目で計算できた ' + cnt.recovered + '）' : '');
   render(); $("bRun").disabled = false; $("bCsv").disabled = !ROWS.length;
 };
 $("noJky").addEventListener("change", () => { if (ROWS.length) render(); });
