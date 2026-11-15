@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>能力計と予想人気の順位の差（集計）</title>
+<title>能力計と予想人気の順位の差（集計・回収率）</title>
 <style>
 :root{--fg:#1d1d1f;--mute:#6b6b70;--line:#d9d9de;--bg:#fafafa;--card:#fff;--acc:#1f5fbf;--bad:#b3261e;--ok:#1e7a3c;--warn:#8a5a00}
 @media (prefers-color-scheme:dark){:root{--fg:#e6edf3;--mute:#9198a1;--line:#30363d;--bg:#0d1117;--card:#161b22;--acc:#4493f8;--bad:#f85149;--ok:#3fb950;--warn:#d29922}}
@@ -34,12 +34,12 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 </head>
 <body>
 <main>
-<h1>能力計と予想人気の順位の差と、着順の関係（集計）</h1>
+<h1>能力計と予想人気の順位の差と、着順の関係（集計・回収率）<span style="font-size:.7em;color:var(--mute);font-weight:400"> 版 rank-compare-5 (2026-11-15)</span></h1>
 <p class="sub">趣味の集計です。出走表と結果ページを読み込み、「能力計の順位が予想人気の順位より上の馬」は着順が良いのかを数えます。計算はこのブラウザの中だけで行い、ファイルはどこにも送りません。</p>
 
 <section>
 <div class="caution">
-・第3群（開催日 2026-10-14〜2026-11-11）のレースは封印しているので、自動で除きます。<br>
+・第3群（開催日 2026-10-14〜2026-11-11）のレースは封印しているので、自動で除きます。販売用の正式判定の対象の期間（2026-11-13 以降）のレースも除きます。<br>
 ・さかのぼって取り直した出走表では、能力計の「騎手」（騎手コース相性）に当日の結果が混ざります。標準では騎手を除いた能力計で順位をつけます。<br>
 ・第1群は、市場の予測モデルと人気の集まりやすさの表を当てはめたデータです。予想人気は実際より当たりやすく出るので、「実際の人気」の層での比較を主に見てください。<br>
 ・購入の根拠にはしません（自分用_方針_v3.md）。
@@ -57,9 +57,11 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>2. 出走表と結果ページ</h2>
 <div class="row">出走表: <input type="file" id="fRace" multiple accept=".txt,.html,.htm"></div>
 <div class="row">結果ページ: <input type="file" id="fRes" multiple accept=".txt,.html,.htm"></div>
-<p class="note">どちらもファイル名がレースID（16桁）で始まるもの。同じレースIDの出走表と結果ページを組にします。1レース数秒かかります（1,000レースで1時間ほど）。</p>
+<p class="note">どちらもファイル名がレースID（16桁）で始まるもの。同じレースIDの出走表と結果ページを組にします。1レース数秒かかります（1,000レースで1時間ほど）。計算中は、このタブを前に出したままにしてください（裏に回すとブラウザが処理を遅くすることがあります）。</p>
 <div class="row"><label><input type="checkbox" id="noJky" checked> 能力計から「騎手」の項目を除く（さかのぼって取った出走表ではおすすめ）</label></div>
 <div class="row"><button id="bRun" disabled>集計する</button><button id="bCsv" class="sec" disabled>馬ごとの表を CSV で保存</button></div>
+<progress id="prog" max="1" value="0" style="width:100%;height:14px;margin-top:10px" hidden></progress>
+<div id="prog2" class="note" style="font-variant-numeric:tabular-nums"></div>
 <div id="status" class="note"></div>
 <pre id="log" hidden></pre>
 </section>
@@ -71,8 +73,9 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <p class="note">予想人気の順位: forecast_v50.py（SHA-256 d2723396…）の人気の確率 p の大きい順。能力計の順位: 同じく v4.7 の能力計（7項目の合計。騎手を除く設定では6項目の合計）の大きい順。どちらも同じ値は馬番の小さい方を上。
 順位は、結果ページにいる馬（出走した馬）だけでつけ直す。実際の人気は結果ページの人気。着順が数字でない馬（競走中止など）は、勝ち・連対・3着以内に数えず、相対着順の平均からは除く。
 全馬が初出走のレース・混在のレース・読み取りで止まったレースは集計しない。結果ページの読み取りは extract_result_only_v50.html の parseResult をそのまま使う。
-出走表の読み取りで止まったレースは、最後に一度計算し直し、それでも止まれば出走表の HTML を html.parser（Python 標準）で組み立てて計算する（rank-compare-3。ブラウザ内の lxml が一部の出走表の見出しを読めないため。手元の確認では、lxml で読めるレースでは html.parser でも同じ値になった）。</p>
-<p class="note">ページの版: rank-compare-3 (2026-11-15)</p>
+出走表の読み取りで止まったレースは、最後に一度計算し直し、それでも止まれば出走表の HTML を html.parser（Python 標準）で組み立てて計算する（rank-compare-3。ブラウザ内の lxml が一部の出走表の見出しを読めないため。手元の確認では、lxml で読めるレースでは html.parser でも同じ値になった）。
+回収率（E）は、結果ページの払戻の表（全券種）から計算する（rank-compare-4）。</p>
+<p class="note">ページの版: rank-compare-5 (2026-11-15)</p>
 </section>
 </main>
 
@@ -2390,12 +2393,12 @@ def forecast_json(path, rid, ST):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "rank-compare-3 (2026-11-15)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
+const VERSION = "rank-compare-5 (2026-11-15)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
 const $ = id => document.getElementById(id);
 const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
 const txt = el => el ? norm(el.textContent) : "";
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let py = null, runFn = null, runFnHP = null, parOK = false, ROWS = [], RACES = 0;
+let py = null, runFn = null, runFnHP = null, parOK = false, ROWS = [], RACES = 0; const PAYS = new Map();
 
 async function readHtml(file) {
   const buf = await file.arrayBuffer();
@@ -2452,7 +2455,7 @@ $("fRace").addEventListener("change", refresh); $("fRes").addEventListener("chan
 async function boot(){
   try{
     py = await loadPyodide();
-    $("boot").textContent = "部品（beautifulsoup4・lxml・numpy・pandas）を読み込んでいます…";
+    $("boot").textContent = "部品（beautifulsoup4・lxml・numpy・pandas）を読み込んでいます…（1分ほど）";
     await py.loadPackage(["beautifulsoup4","lxml","numpy","pandas"]);
     py.FS.mkdirTree("/v49"); py.FS.mkdirTree("/v50");
     for (const n of ["keiba_v47","feat_extract","v48_model","v49_model"]) py.FS.writeFile("/v49/"+n+".py", $("py-"+n).textContent);
@@ -2501,19 +2504,35 @@ $("fPar").addEventListener("change", async e => {
 const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 const ridOf = f => (f.name.match(/^(\d{16})/) || [])[1];
 const sealed = rid => { const d = rid.slice(0, 8); return d >= "20261014" && d <= "20261111"; };
-const log = s => { $("log").hidden = false; $("log").textContent += s + "\n"; };
+const judged = rid => rid.slice(0, 8) >= "20261113";   // 販売用の正式判定の対象の期間（11/13 以降）
+const log = s => { $("log").hidden = false; const el = $("log"); el.textContent += s + "\n"; el.scrollTop = el.scrollHeight; };
+// 進み具合の表示: 1レースごとに、何レース目か・経過時間・残りの見込み・いま計算しているレース・ここまでの件数を出す。
+// 計算中（1レース数秒）は画面が止まるので、表示が変わるのは1レースごと。表示が数十秒変わらないときは止まっている可能性がある。
+const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s2 = t % 60;
+  return (h ? h + "時間" : "") + (h || m ? m + "分" : "") + s2 + "秒"; };
+let T0 = 0;
+function progress(done, total, phase, rid, cnt){
+  const el = $("prog"); el.hidden = false; el.max = Math.max(1, total); el.value = done;
+  const now = performance.now(), el_ms = now - T0, per = done ? el_ms / done : 0;
+  $("prog2").innerHTML = '<b>' + escH(phase) + '</b> ' + done + ' / ' + total + '（' + (total ? Math.floor(100 * done / total) : 0) + '%）' +
+    '・経過 ' + mmss(el_ms) + (done && done < total ? '・残り約 ' + mmss(per * (total - done)) : '') + (done ? '・1レース平均 ' + (per / 1000).toFixed(1) + '秒' : '') +
+    (rid ? '<br>いま計算しているレース: ' + rid : '') +
+    (cnt ? '<br>ここまで: 集計 ' + cnt.used + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・止まって後で計算し直す ' + (cnt.pend || 0) + '・除外（第3群・11/13以降） ' + (cnt.sealed + cnt.judged) : '');
+}
 
 $("bRun").onclick = async () => {
-  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; $("log").textContent = ""; ROWS = []; RACES = 0;
+  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; $("log").textContent = ""; ROWS = []; RACES = 0; PAYS.clear();
+  const T1 = performance.now(); $("prog2").textContent = "ファイルを組にしています…"; await yieldNow();
   const cards = new Map(), res = new Map();
   for (const f of $("fRace").files){ const r = ridOf(f); if (r) cards.set(r, f); }
   for (const f of $("fRes").files){ const r = ridOf(f); if (r) res.set(r, f); }
   const rids = [...cards.keys()].filter(r => res.has(r)).sort();
   const cnt = { pair: rids.length, card_only: [...cards.keys()].filter(r => !res.has(r)).length, res_only: [...res.keys()].filter(r => !cards.has(r)).length,
-                sealed: 0, debut: 0, mixed: 0, other: 0, nores: 0, used: 0 };
+                sealed: 0, judged: 0, debut: 0, mixed: 0, other: 0, nores: 0, used: 0 };
   let i = 0;
-  /* rank-compare-2: 1レース分の処理を関数にし、読み取りで止まったレースは最後にもう一度だけ計算し直す。
-     25レースごとに Python のごみ集め（gc.collect）を行う。計算の中身（Python のコード・集計）は変えない。 */
+  /* rank-compare-2〜3（もう一つのセッションでの直し。そのまま引き継ぐ）: 1レース分の処理を関数にし、読み取りで止まったレースは最後にもう一度だけ計算し直す。
+     それでも止まれば、予備の読み取り（html.parser）で計算する。25レースごとに Python のごみ集め（gc.collect）を行う。計算の中身は変えない。
+     rank-compare-4: 結果ページから全券種の払戻（parsePay）と枠を取り、回収率の集計（E）に使う。 */
   const gc = () => { try { py.runPython("import gc; gc.collect()"); } catch (e) {} };
   const doRace = async (rid, fn) => {
     /* 戻り値: { ok:true } または { kind, msg, retry }。retry=true は、もう一度試す価値のある止まり方 */
@@ -2525,7 +2544,7 @@ $("bRun").onclick = async () => {
         if (o.state === "mixed") return { kind: "mixed" };
         return { kind: "other", msg: o.state + " " + (o.message || ""), retry: o.state === "error" || o.state === "stop" };
       }
-      const R = parseResult(await readHtml(res.get(rid)));
+      const RD = await readHtml(res.get(rid)); const R = parseResult(RD); const PAY = parsePay(RD);
       if (!R.rows.size) return { kind: "nores", msg: "結果の表を読めない", retry: true };
       const H = o.horses.map((h, k) => ({ num: h.num, name: h.name, p: o.market.p[k], U: o.ability.total[k], Uj: o.ability.total[k] - o.ability.parts[k][6], rr: R.rows.get(String(h.num)) }))
                         .filter(h => h.rr && h.rr.fin !== "" && !/取消|除外/.test(h.rr.fin));
@@ -2535,19 +2554,24 @@ $("bRun").onclick = async () => {
       const n = H.length;
       for (const h of H){
         const fin = /^\d+$/.test(h.rr.fin) ? +h.rr.fin : null, pop = /^\d+$/.test(h.rr.pop) ? +h.rr.pop : null;
-        ROWS.push({ rid, n, num: h.num, name: h.name, mrank: mr(h), arank: ar(h), arank_nj: arj(h), pop, fin });
+        ROWS.push({ rid, n, num: h.num, name: h.name, mrank: mr(h), arank: ar(h), arank_nj: arj(h), pop, fin, waku: +h.rr.waku || null });
       }
+      PAYS.set(rid, PAY);
       return { ok: true };
     }catch(e){ return { kind: "other", msg: "例外 " + e, retry: true }; }
   };
   const tally = r => { if (r.ok){ cnt.used++; RACES++; } else cnt[r.kind]++; };
   const again = [];
+  T0 = performance.now(); cnt.pend = 0;
+  log("開始: 組になったレース " + rids.length + "（出走表だけ " + cnt.card_only + "・結果だけ " + cnt.res_only + "）");
   for (const rid of rids){
-    i++; if (i % 3 === 1){ $("status").textContent = i + " / " + rids.length + " レース目を計算しています…"; await yieldNow(); }
+    i++; progress(i - 1, rids.length, "計算中", rid, cnt); $("status").textContent = ""; await yieldNow();
+    if (i % 50 === 0) log(i + " / " + rids.length + " レース（集計 " + cnt.used + "）経過 " + mmss(performance.now() - T0));
     if (i % 25 === 0) gc();
     if (sealed(rid)){ cnt.sealed++; continue; }
+    if (judged(rid)){ cnt.judged++; continue; }
     const r = await doRace(rid);
-    if (!r.ok && r.retry){ again.push([rid, r.msg]); log(rid + ": " + r.msg + "（最後にもう一度計算します）"); continue; }
+    if (!r.ok && r.retry){ again.push([rid, r.msg]); cnt.pend++; log(rid + ": " + r.msg + "（最後にもう一度計算します）"); continue; }
     if (!r.ok && r.msg) log(rid + ": " + r.msg);
     tally(r);
   }
@@ -2555,8 +2579,9 @@ $("bRun").onclick = async () => {
   if (again.length){
     log("読み取りで止まった " + again.length + " レースを、もう一度計算します。");
     gc(); await yieldNow();
+    T0 = performance.now(); let j = 0;
     for (const [rid, msg1] of again){
-      $("status").textContent = "止まったレースを計算し直しています（" + rid + "）…"; await yieldNow();
+      progress(j++, again.length, "止まったレースの計算し直し", rid, null); await yieldNow();
       let r = await doRace(rid);
       if (r.ok) { cnt.recovered++; log(rid + ": 1回目は止まった（" + msg1 + "）が、2回目で計算できた"); tally(r); continue; }
       if (r.kind === "other" && runFnHP){
@@ -2568,12 +2593,84 @@ $("bRun").onclick = async () => {
       tally(r);
     }
   }
+  progress(1, 1, "終わり", "", null); $("prog2").innerHTML = "<b>終わりました。</b>集計の表を作っています…"; await yieldNow();
   $("status").innerHTML = '終わりました。組になったレース ' + cnt.pair + '（出走表だけ ' + cnt.card_only + '・結果だけ ' + cnt.res_only + '）→ 集計 <b>' + cnt.used + '</b> レース。' +
-    '除いたもの: 第3群の期間 ' + cnt.sealed + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。' + (cnt.retried ? '（止まって計算し直したレース ' + cnt.retried + '・うち2回目で計算できた ' + cnt.recovered + '〔予備の読み取り ' + cnt.hp + '〕）' : '');
-  render(); $("bRun").disabled = false; $("bCsv").disabled = !ROWS.length;
+    '除いたもの: 第3群の期間 ' + cnt.sealed + '・正式判定の期間（11/13 以降） ' + cnt.judged + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。' +
+    (cnt.retried ? '（止まって計算し直したレース ' + cnt.retried + '・うち2回目で計算できた ' + cnt.recovered + '〔予備の読み取り ' + cnt.hp + '〕）' : '');
+  render(); $("prog2").innerHTML = "<b>終わりました。</b>（全体 " + mmss(performance.now() - T1) + "）"; log("終わり: 全体 " + mmss(performance.now() - T1));
+  $("bRun").disabled = false; $("bCsv").disabled = !ROWS.length;
 };
 $("noJky").addEventListener("change", () => { if (ROWS.length) render(); });
 
+/* ---------- 払戻（全券種）の読み取り ---------- */
+// 結果ページの「組番 金額 人気」の表を読む。券種の名前は結果ページの表記（単勝・複勝・枠複・普通馬複・枠単・馬単・ワイド・三連複・三連単）。
+// 戻り値: { 券種: [{c: 組番（順番なしの券種は小さい順に並べ直した文字列）, y: 100円あたりの払戻}] }。表にない券種は「発売なし」とみなし、買わない。
+const KINDS = ["単勝", "複勝", "枠複", "普通馬複", "枠単", "馬単", "ワイド", "三連複", "三連単"];
+const UNORD = new Set(["枠複", "普通馬複", "ワイド", "三連複"]);
+const key = (kind, a) => (UNORD.has(kind) ? [...a].sort((x, y) => x - y) : a).join("-");
+function parsePay(doc){
+  const out = {};
+  const pt = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /組番/.test(txt(x.querySelector("tr"))) && /単勝/.test(txt(x)));
+  if (!pt) return out;
+  let kind = "";
+  for (const tr of pt.querySelectorAll("tr")){
+    const cells = [...tr.children];
+    if (cells.length && cells[0].tagName === "TH"){ kind = txt(cells[0]); cells.shift(); }
+    if (!KINDS.includes(kind)) continue;
+    const v = cells.map(txt); if (v.length < 2) continue;
+    const nums = (v[0].match(/\d+/g) || []).map(Number), yen = parseInt(v[1].replace(/[,円\s]/g, ""), 10);
+    if (!nums.length || isNaN(yen)) continue;
+    (out[kind] = out[kind] || []).push({ c: key(kind, nums), y: yen });
+  }
+  return out;
+}
+const comb = (a, k) => k === 0 ? [[]] : a.flatMap((x, i) => comb(a.slice(i + 1), k - 1).map(r => [x, ...r]));
+const perm = (a, k) => k === 0 ? [[]] : a.flatMap((x, i) => perm(a.filter((_, j) => j !== i), k - 1).map(r => [x, ...r]));
+function tickets(kind, H){            // H: 選んだ馬（{num, waku}）。ボックスの買い目の組番（重複なし）
+  const n = H.map(h => h.num), w = h => h.waku, S = new Set();
+  const add = a => S.add(key(kind, a));
+  if (kind === "単勝" || kind === "複勝") n.forEach(x => add([x]));
+  else if (kind === "普通馬複" || kind === "ワイド") comb(n, 2).forEach(add);
+  else if (kind === "馬単") perm(n, 2).forEach(add);
+  else if (kind === "三連複") comb(n, 3).forEach(add);
+  else if (kind === "三連単") perm(n, 3).forEach(add);
+  else if (kind === "枠複") comb(H, 2).forEach(p => { if (w(p[0]) && w(p[1])) add([w(p[0]), w(p[1])]); });
+  else if (kind === "枠単") perm(H, 2).forEach(p => { if (w(p[0]) && w(p[1])) add([w(p[0]), w(p[1])]); });
+  return [...S];
+}
+const STRAT = [
+  ["基準（予想人気の上位5頭）", (L, AR) => [...L].sort((a, b) => a.mrank - b.mrank).slice(0, 5)],
+  ["能力計の上位5頭", (L, AR) => [...L].sort((a, b) => AR(a) - AR(b)).slice(0, 5)],
+  ["能力計が予想人気より上の馬のうち、能力計の上位5頭", (L, AR) => L.filter(r => AR(r) < r.mrank).sort((a, b) => AR(a) - AR(b)).slice(0, 5)],
+];
+function roiTable(byR, AR){
+  // 戻り値: 買い方ごと・券種ごとに、レースごとの [投資, 払戻] の列
+  const res = STRAT.map(() => Object.fromEntries(KINDS.map(k => [k, []])));
+  for (const [rid, L] of byR){
+    const P = PAYS.get(rid) || {};
+    STRAT.forEach(([_, pick], si) => {
+      const H = pick(L, AR);
+      for (const kind of KINDS){
+        if (!P[kind]) continue;                       // 発売なし
+        const T = tickets(kind, H); if (!T.length) continue;
+        const hit = new Map(P[kind].map(x => [x.c, x.y]));
+        let ret = 0, nh = 0; for (const t of T) if (hit.has(t)){ ret += hit.get(t); nh++; }
+        res[si][kind].push([100 * T.length, ret, nh, T.length]);
+      }
+    });
+  }
+  return res;
+}
+function roiStats(v, B){
+  const inv = v.reduce((a, x) => a + x[0], 0), ret = v.reduce((a, x) => a + x[1], 0);
+  const pts = v.reduce((a, x) => a + x[3], 0), hits = v.reduce((a, x) => a + x[2], 0), hr = v.filter(x => x[2] > 0).length;
+  const mx = v.reduce((a, x) => Math.max(a, x[1]), 0);
+  const u = rng(20261115), bs = [];
+  for (let b = 0; b < B && v.length; b++){ let I = 0, Rt = 0; for (let i = 0; i < v.length; i++){ const x = v[Math.floor(u() * v.length)]; I += x[0]; Rt += x[1]; } bs.push(Rt / I); }
+  bs.sort((a, b) => a - b); const m = bs.length;
+  return { races: v.length, pts, hits, hr, inv, ret, roi: inv ? ret / inv : NaN, ex: inv ? (ret - mx) / inv : NaN,
+           lo: m ? bs[Math.floor(0.025 * m)] : NaN, hi: m ? bs[Math.max(0, Math.floor(0.975 * m) - 1)] : NaN };
+}
 /* ---------- 集計 ---------- */
 function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const pc = x => isNaN(x) ? "-" : (100 * x).toFixed(1) + "%";
@@ -2631,6 +2728,24 @@ function render(){
   };
   h += block("B. 実際の人気の層の中での比較（主に見る）", "pop", gp, "結果ページの人気で層に分け、その中で「能力計の順位が実際の人気の順位より上の馬」と「下の馬」の3着内率を比べる。区間はレースを単位にしたブートストラップ1,000回（種 20261113）。");
   h += block("C. 予想人気の層の中での比較（参考）", "mrank", gm, "予想人気（市場の予測モデル）の順位で層に分ける。第1群はこのモデルを当てはめたデータなので、甘めに出る。");
+  // E: 回収率
+  {
+    const byR = new Map(); for (const r of ROWS){ if (!byR.has(r.rid)) byR.set(r.rid, []); byR.get(r.rid).push(r); }
+    const R = roiTable(byR, AR), yen = x => Math.round(x).toLocaleString();
+    h += '<h3>E. 回収率（1点100円・ボックス買い）</h3><p class="note">買う馬の決め方は3つ。どの券種も、選んだ馬（最大5頭）のボックスで買う。発売のない券種のレースは買わない。区間はレースを単位にしたブートストラップ1,000回（種 20261115）。「最大1本を除く」は、払戻がいちばん大きかったレースの払戻を除いた回収率。</p>';
+    STRAT.forEach(([lab], si) => {
+      h += '<h3 style="font-size:.88rem">' + (si + 1) + '. ' + escH(lab) + '</h3><div class="scroll"><table><tr><th>券種</th><th>レース</th><th>点数</th><th>的中</th><th>的中レース率</th><th>投資</th><th>払戻</th><th>回収率</th><th>95%区間</th><th>最大1本を除く</th></tr>';
+      for (const kind of KINDS){
+        const t = roiStats(R[si][kind], 1000);
+        if (!t.races){ h += '<tr><td class="l">' + kind + '</td><td colspan="9">-</td></tr>'; continue; }
+        const good = t.lo > 1 ? ' style="color:var(--ok);font-weight:700"' : '';
+        h += '<tr><td class="l">' + kind + '</td><td>' + t.races + '</td><td>' + t.pts + '</td><td>' + t.hits + '</td><td>' + pc(t.hr / t.races) + '</td><td>' + yen(t.inv) + '</td><td>' + yen(t.ret) +
+             '</td><td' + good + '>' + pc(t.roi) + '</td><td>' + pc(t.lo) + '〜' + pc(t.hi) + '</td><td>' + pc(t.ex) + '</td></tr>';
+      }
+      h += '</table></div>';
+    });
+    h += '<p class="note">枠複・枠単は、選んだ馬の枠の組み合わせ（同じ組は1点）。普通馬複＝馬連。買い方と券種の組み合わせが27通りあるので、どれか1つが偶然100%を超えて見えることはよくある。良さそうなものは、決まりを固定して新しいデータで1回だけ確かめる。</p>';
+  }
   // D
   const byR = new Map(); for (const r of ROWS){ if (!byR.has(r.rid)) byR.set(r.rid, []); byR.get(r.rid).push(r); }
   const acc = { a: [], m: [], p: [] };
