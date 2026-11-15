@@ -70,8 +70,9 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">予想人気の順位: forecast_v50.py（SHA-256 d2723396…）の人気の確率 p の大きい順。能力計の順位: 同じく v4.7 の能力計（7項目の合計。騎手を除く設定では6項目の合計）の大きい順。どちらも同じ値は馬番の小さい方を上。
 順位は、結果ページにいる馬（出走した馬）だけでつけ直す。実際の人気は結果ページの人気。着順が数字でない馬（競走中止など）は、勝ち・連対・3着以内に数えず、相対着順の平均からは除く。
-全馬が初出走のレース・混在のレース・読み取りで止まったレースは集計しない。結果ページの読み取りは extract_result_only_v50.html の parseResult をそのまま使う。</p>
-<p class="note">ページの版: rank-compare-2 (2026-11-15)</p>
+全馬が初出走のレース・混在のレース・読み取りで止まったレースは集計しない。結果ページの読み取りは extract_result_only_v50.html の parseResult をそのまま使う。
+出走表の読み取りで止まったレースは、最後に一度計算し直し、それでも止まれば出走表の HTML を html.parser（Python 標準）で組み立てて計算する（rank-compare-3。ブラウザ内の lxml が一部の出走表の見出しを読めないため。手元の確認では、lxml で読めるレースでは html.parser でも同じ値になった）。</p>
+<p class="note">ページの版: rank-compare-3 (2026-11-15)</p>
 </section>
 </main>
 
@@ -2389,12 +2390,12 @@ def forecast_json(path, rid, ST):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "rank-compare-2 (2026-11-15)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
+const VERSION = "rank-compare-3 (2026-11-15)", PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
 const $ = id => document.getElementById(id);
 const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
 const txt = el => el ? norm(el.textContent) : "";
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let py = null, runFn = null, parOK = false, ROWS = [], RACES = 0;
+let py = null, runFn = null, runFnHP = null, parOK = false, ROWS = [], RACES = 0;
 
 async function readHtml(file) {
   const buf = await file.arrayBuffer();
@@ -2478,6 +2479,22 @@ $("fPar").addEventListener("change", async e => {
   try { py.runPython("ST = F.load_params('/v50/v50_params.json')"); }
   catch (err) { $("parSt").innerHTML = '<span class="bad">係数のファイルの確認で止まりました: ' + escH(err) + '</span>'; return; }
   runFn = py.runPython("lambda path, rid: F.forecast_json(path, rid, ST)");
+  /* rank-compare-3: 予備の読み取り。出走表の HTML を lxml ではなく Python 標準の html.parser で組み立てて、同じ計算をする。
+     ブラウザ内の lxml が一部の出走表で見出しを読めないため（2026-11-15 確認）。lxml で止まったレースにだけ使う。 */
+  runFnHP = py.runPython([
+    "import bs4, sys",
+    "_BS0 = bs4.BeautifulSoup",
+    "class _HP(_BS0):",
+    "    def __init__(self, markup='', features=None, *a, **k):",
+    "        super().__init__(markup, 'html.parser', *a, **k)",
+    "def _forecast_hp(path, rid):",
+    "    E = sys.modules['keiba_v47']",
+    "    E.BeautifulSoup = _HP; bs4.BeautifulSoup = _HP",
+    "    try:",
+    "        return F.forecast_json(path, rid, ST)",
+    "    finally:",
+    "        E.BeautifulSoup = _BS0; bs4.BeautifulSoup = _BS0",
+    "_forecast_hp"].join("\n"));
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
 });
 
@@ -2498,11 +2515,11 @@ $("bRun").onclick = async () => {
   /* rank-compare-2: 1レース分の処理を関数にし、読み取りで止まったレースは最後にもう一度だけ計算し直す。
      25レースごとに Python のごみ集め（gc.collect）を行う。計算の中身（Python のコード・集計）は変えない。 */
   const gc = () => { try { py.runPython("import gc; gc.collect()"); } catch (e) {} };
-  const doRace = async rid => {
+  const doRace = async (rid, fn) => {
     /* 戻り値: { ok:true } または { kind, msg, retry }。retry=true は、もう一度試す価値のある止まり方 */
     try{
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await cards.get(rid).arrayBuffer()));
-      const o = JSON.parse(runFn("/tmp/race.txt", rid));
+      const o = JSON.parse((fn || runFn)("/tmp/race.txt", rid));
       if (o.state !== "normal"){
         if (o.state === "debut") return { kind: "debut" };
         if (o.state === "mixed") return { kind: "mixed" };
@@ -2534,20 +2551,25 @@ $("bRun").onclick = async () => {
     if (!r.ok && r.msg) log(rid + ": " + r.msg);
     tally(r);
   }
-  cnt.retried = again.length; cnt.recovered = 0;
+  cnt.retried = again.length; cnt.recovered = 0; cnt.hp = 0;
   if (again.length){
     log("読み取りで止まった " + again.length + " レースを、もう一度計算します。");
     gc(); await yieldNow();
     for (const [rid, msg1] of again){
       $("status").textContent = "止まったレースを計算し直しています（" + rid + "）…"; await yieldNow();
-      const r = await doRace(rid);
-      if (r.ok) { cnt.recovered++; log(rid + ": 1回目は止まった（" + msg1 + "）が、2回目で計算できた"); }
-      else log(rid + ": " + (r.msg || r.kind) + "（2回目も止まった）");
+      let r = await doRace(rid);
+      if (r.ok) { cnt.recovered++; log(rid + ": 1回目は止まった（" + msg1 + "）が、2回目で計算できた"); tally(r); continue; }
+      if (r.kind === "other" && runFnHP){
+        const r2 = await doRace(rid, runFnHP);
+        if (r2.ok) { cnt.recovered++; cnt.hp++; log(rid + ": lxml では止まった（" + msg1 + "）が、予備の読み取り（html.parser）で計算できた"); tally(r2); continue; }
+        r = r2;
+      }
+      log(rid + ": " + (r.msg || r.kind) + "（2回目も止まった）");
       tally(r);
     }
   }
   $("status").innerHTML = '終わりました。組になったレース ' + cnt.pair + '（出走表だけ ' + cnt.card_only + '・結果だけ ' + cnt.res_only + '）→ 集計 <b>' + cnt.used + '</b> レース。' +
-    '除いたもの: 第3群の期間 ' + cnt.sealed + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。' + (cnt.retried ? '（止まって計算し直したレース ' + cnt.retried + '・うち2回目で計算できた ' + cnt.recovered + '）' : '');
+    '除いたもの: 第3群の期間 ' + cnt.sealed + '・新馬 ' + cnt.debut + '・混在 ' + cnt.mixed + '・結果の読み取り ' + cnt.nores + '・そのほか ' + cnt.other + '。' + (cnt.retried ? '（止まって計算し直したレース ' + cnt.retried + '・うち2回目で計算できた ' + cnt.recovered + '〔予備の読み取り ' + cnt.hp + '〕）' : '');
   render(); $("bRun").disabled = false; $("bCsv").disabled = !ROWS.length;
 };
 $("noJky").addEventListener("change", () => { if (ROWS.length) render(); });
