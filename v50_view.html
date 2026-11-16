@@ -117,8 +117,8 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。</p>
-<p class="note">ページの版: v5.0-own-3 (2026-11-16)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。</p>
+<p class="note">ページの版: v5.0-own-3・表示2 (2026-11-16)</p>
 </section>
 </main>
 
@@ -2538,8 +2538,8 @@ def forecast_json(path, rid, ST, odds_path=None):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-3 (2026-11-16)";
-let py = null, runFn = null, parOK = false; const CSV = [];
+const VERSION = "v5.0-own-3・表示2 (2026-11-16)";
+let py = null, runFn = null, runFnHP = null, parOK = false; const CSV = [];
 const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -2579,6 +2579,22 @@ $("fPar").addEventListener("change", async e => {
   try { py.runPython("ST = F.load_params('/v50/v50_params.json')"); }
   catch (err) { $("parSt").innerHTML = '<span class="bad">係数のファイルの確認で止まりました: ' + escH(err) + '</span>'; return; }
   runFn = py.runPython("lambda path, rid, op: F.forecast_json(path, rid, ST, op or None)");
+  /* 表示2: 予備の読み取り。出走表の HTML を lxml ではなく Python 標準の html.parser で組み立てて、同じ計算をする（集計のページ rank-compare-3 と同じ仕組み）。
+     ブラウザ内の lxml が一部の出走表を読めないため。lxml で止まったレースにだけ使う。計算の中身は変えない。 */
+  runFnHP = py.runPython([
+    "import bs4, sys",
+    "_BS0 = bs4.BeautifulSoup",
+    "class _HP(_BS0):",
+    "    def __init__(self, markup='', features=None, *a, **k):",
+    "        super().__init__(markup, 'html.parser', *a, **k)",
+    "def _forecast_hp(path, rid, op):",
+    "    E = sys.modules['keiba_v47']",
+    "    E.BeautifulSoup = _HP; bs4.BeautifulSoup = _HP",
+    "    try:",
+    "        return F.forecast_json(path, rid, ST, op or None)",
+    "    finally:",
+    "        E.BeautifulSoup = _BS0; bs4.BeautifulSoup = _BS0",
+    "_forecast_hp"].join("\n"));
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
 });
 
@@ -2631,8 +2647,13 @@ $("bRun").onclick = async () => {
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await f.arrayBuffer()));
       const ofs = OD.get(rid) || []; let opath = "", oname = "";
       if (ofs.length === 1){ py.FS.writeFile("/tmp/odds.txt", new Uint8Array(await ofs[0].arrayBuffer())); opath = "/tmp/odds.txt"; oname = ofs[0].name; }
-      const o = JSON.parse(runFn("/tmp/race.txt", rid, opath)); const st = o.state, msg = o.message;
-      const MK = marketHtml(o, rid, ofs, oname);
+      let o = JSON.parse(runFn("/tmp/race.txt", rid, opath)), hp = "";
+      if ((o.state === "error" || o.state === "stop") && runFnHP){
+        const o2 = JSON.parse(runFnHP("/tmp/race.txt", rid, opath));
+        if (o2.state === "normal" || o2.state === "debut" || o2.state === "mixed"){ hp = o.message || o.state; o = o2; }
+      }
+      const st = o.state, msg = o.message;
+      const MK = (hp ? '<p class="note">lxml での読み取りでは止まった（' + escH(hp) + '）ので、予備の読み取り（html.parser）で計算しました。計算の中身は同じです。</p>' : '') + marketHtml(o, rid, ofs, oname);
       const inf = { venue: o.venue, surface: o.surface, dist: o.dist, heads: o.heads, horses: o.horses || [], style: (o.horses || []).map(x => x.style),
                     nige_boost: o.ability ? o.ability.nige_boost : 0 };
       const title = escH((inf.venue || "") + " " + Number(rid.slice(-2)) + "R　" + (inf.surface || "") + (inf.dist || "") + "m" + (inf.heads ? "・" + inf.heads + "頭" : ""));
