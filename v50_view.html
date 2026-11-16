@@ -64,12 +64,23 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 </head>
 <body>
 <main>
-<h1>v5.0 見通し（自分用・参考）<span style="font-size:.7em;color:var(--mute);font-weight:400"> 最新版 v5.0-own-2</span></h1>
-<p class="sub">出走表の .txt（中身は HTML）を選ぶと、v5.0 第1段階のモデルで、各馬の人気の確率と想定オッズを出します。計算はこのブラウザの中だけで行い、ファイルはどこにも送りません。</p>
+<h1>v5.0 見通し（自分用・参考）<span style="font-size:.7em;color:var(--mute);font-weight:400"> 最新版 v5.0-own-3</span></h1>
+<p class="sub">出走表の .txt（中身は HTML）と、締切前に保存した oddsJS を選ぶと、市場（オッズ）の見通しと能力（M1）を並べて出します。oddsJS がなくても、今までの見通し（予想人気・v4.7 の能力計）と M1 は出ます。計算はこのブラウザの中だけで行い、ファイルはどこにも送りません。</p>
 
 <section>
-<div class="caution">参考の表示です。自分用で正式判定に合格した購入の候補はまだないので、これを買う根拠にはしません（自分用_方針_v3.md）。想定オッズは確定オッズと平均でおよそ1.9倍ずれます（第2群・後付けの出走表での値）。</div>
+<div class="caution">参考の表示です。これを買う根拠にはしません（自分用_方針_v4.md）。P1・有効頭数・一致の意味は、確定オッズで代用したバックテスト（第2群 238 レース）で確かめたもので、締切前のオッズでの差は測っていません。想定オッズ（予想人気）は確定オッズと平均でおよそ1.9倍ずれます。</div>
 <div id="boot" class="note">計算の準備をしています（初回は1〜2分かかります）…</div>
+</section>
+
+<section>
+<h2>市場の見通しと能力（M1）の作り方（v5.0-own-3）</h2>
+<ol class="steps">
+<li>市場の確率 m = (1 ÷ 単勝オッズ) を、出走馬の中で合計100%に割り直したもの（補正しない）。oddsJS で有効でない馬は取消・除外として除く。</li>
+<li>P1 = 市場1位の馬の m（1番人気への集中度）。有効頭数 = exp(−Σ m log m)（実質何頭立てか）。</li>
+<li>能力（M1）= 近走の成績の6項目（v4.7 の着順・着差・位置・末脚・適性・時計）を、出走馬の中でそろえ（平均0・標準偏差1）、固定の係数を掛けて足したもの。係数は第1群の 3/1〜6/30 で当てはめた値（着順 +0.227・着差 +0.428・位置 −0.217・末脚 +0.177・適性 +0.189・時計 +0.106）。</li>
+<li>市場1位と能力1位が同じ馬なら「一致」。同点は馬番の小さい方を上にする。</li>
+</ol>
+<p class="note">第2群の 238 レース（確定オッズで代用）では、P1 が高いほど・有効頭数が少ないほど、市場1位がよく勝った。一致・不一致は参考情報で、信頼度の目安ではない（不一致のレースでも、市場1位の勝率 43% は能力1位の 14% より高かった）。β での確率の補正・総合順位・市場と能力を合わせた評価は、確かめた結果、出さない。</p>
 </section>
 
 <section>
@@ -86,13 +97,17 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <section>
 <h2>1. 係数のファイル（v50_params.json）を選ぶ</h2>
 <div class="row"><input type="file" id="fPar" accept=".json,application/json"></div>
-<div id="parSt" class="note">v50_params.json を選んでください（SHA-256 が b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb と一致するときだけ使います）。</div>
+<div id="parSt" class="note">v50_params.json を選んでください（SHA-256 が 83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e と一致するときだけ使います）。</div>
 </section>
 
 <section>
 <h2>2. 出走表を選ぶ</h2>
-<div class="row"><input type="file" id="fRace" multiple accept=".txt,.html,.htm"><button id="bRun" disabled>見通しを出す</button></div>
+<div class="row"><input type="file" id="fRace" multiple accept=".txt,.html,.htm"></div>
 <p class="note">ファイル名はレースID（16桁）で始まるもの。何レースでも選べます（1レース数秒）。</p>
+<h2 style="margin-top:12px">3. oddsJS を選ぶ（任意）</h2>
+<div class="row"><input type="file" id="fOdds" multiple><span id="oddsCnt" class="note" style="margin:0">0件</span></div>
+<p class="note">締切前に保存した odds_&lt;レースID&gt;_&lt;取得日時&gt;.txt（中身は /oddsJS/&lt;ID&gt;.do）。ファイル名の16桁のレースIDで出走表と組み合わせます。同じレースのファイルが2つ以上あるときは、そのレースの市場の情報を出しません。</p>
+<div class="row"><button id="bRun" disabled>見通しを出す</button><button id="bCsv" disabled style="background:transparent;color:var(--acc)">市場の表を CSV で保存</button></div>
 <div id="status" class="note"></div>
 </section>
 
@@ -100,9 +115,10 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 
 <section>
 <h2>このページについて</h2>
-<p class="note">計算は forecast_v50.py（SHA-256 d2723396…）1本で行う。係数は v50_params.json（SHA-256 b34d41c2…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
+<p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">ページの版: v5.0-own-2・表示2 (2026-11-13)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。</p>
+<p class="note">ページの版: v5.0-own-3 (2026-11-16)</p>
 </section>
 </main>
 
@@ -2248,7 +2264,7 @@ def build_X(D, te_vals):
     return np.round(out, 6)
 </script>
 <script type="text/plain" id="py-forecast_v50"># -*- coding: utf-8 -*-
-"""forecast_v50.py  v5.0 自分用の見通し（最新版 v5.0-own-2。2026-11-13）
+"""forecast_v50.py  v5.0 自分用の見通し（最新版 v5.0-own-3。2026-11-16。v5.0-own-2 の計算は変えずに、4. を足した）
 
 1本で、出走表から次の2つを出す。
   1. 人気の見通し（市場の予測）: v5.0 第1段階の m̂。55項目 X（design57.build_X、6表は固定）→ s = X·w_market
@@ -2259,11 +2275,16 @@ def build_X(D, te_vals):
   3. 全馬が初出走のレース（新馬）: 分析計算v4.7 の新馬モード（predict_debut をそのまま呼ぶ）。能試時計・初出走（騎手/厩舎の平均）・
      騎手コース・種牡馬連対率・騎手厩舎の5項目で、能力計と勝率を出す。人気の見通しは出さない（v5.0 のモデルは近走のある馬だけで作ったため）。
      初出走の馬と経験のある馬が混ざるレースは、v4.7 と同じく対象外。
+  4. （v5.0-own-3）締切前の oddsJS と能力（M1）: 自分用_v5.0-own-3_表示仕様_案.md と、②③（探索_βγの推定_結果.md・探索_信頼度の確認_結果.md）と同じ定義。
+     市場の確率 m = (1/単勝オッズ) を出走馬の中で割り直したもの（β = 1）。oddsJS で有効でない馬は取消・除外として除く。
+     M1 = 近走の成績の6項目 c1〜c6 を、出走馬の中で平均0・標準偏差1にそろえ（欠けは0）、固定の係数（ability_coef_v1.json の M1）を掛けた合計。
+     レースごとに P1（市場1位の m）・有効頭数 exp(−Σ m log m)・一致（市場1位と能力1位が同じ馬か）。順位の同点は馬番の小さい方。
+     β で補正した確率・総合順位・市場と能力を合わせた評価は出さない（②の判定）。oddsJS がないときは、市場の情報（順位・確率・P1・有効頭数・一致）を出さない。
 
 係数: v50_params.json（market = stage1_params_55.json の中身そのもの〔SHA-256 90b07936…〕、ability = v4.7 の設定の写し）。
 計算のコード: 抽出3のドライバ（driver3.py）と、v4.9 のコード4本（keiba_v47・feat_extract・v48_model・v49_model。変えない）、design57.py。
 探索・正式判定のスクリプト（explore_fav.py など）と同じ手順で s を作る。購入の根拠にはしない（自分用_方針_v3.md）。"""
-import io, json, hashlib, os, sys, math, contextlib
+import io, json, hashlib, os, sys, math, contextlib, re
 import numpy as np, pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -2273,7 +2294,9 @@ import design57 as DZ
 import driver3 as DR          # 抽出3のドライバ。読み込むと v4.9 のコード4本も読み込む
 
 E47 = DR.E47
-VERSION = "v5.0-own-2"
+VERSION = "v5.0-own-3"
+M1_SRC_SHA = "e6bf1a0a6649d8943bc3a70e3ad9d5000fcfdf99d65fee18b6855dcc8ca1f62d"
+M1_COLS = ["c1", "c2", "c3", "c4", "c5", "c6"]
 MARKET_SHA = "90b07936b062e3cb102db7653dcedaf6e86f63720d5aa54523f622589ef4528f"
 R_PAY = 0.7856
 
@@ -2317,13 +2340,18 @@ def load_params(path):
         raise ValueError("ability.points が v4.7 のコードの設定と違う")
     if ab["debut"]["scale"] != S["debut"]["scale"] or ab["debut"]["points"] != S["debut"]["points"]:
         raise ValueError("ability.debut が v4.7 のコードの設定（新馬モード）と違う")
+    if P.get("version") != VERSION:
+        raise ValueError("係数のファイルの版が %s ではない（%s）" % (VERSION, P.get("version")))
+    m1 = P.get("ability_m1") or {}
+    if m1.get("cols") != M1_COLS or len(m1.get("coef", [])) != 6 or m1.get("source_sha256") != M1_SRC_SHA:
+        raise ValueError("ability_m1 が固定の M1（ability_coef_v1.json）と違う")
     cols = mk["cols"]
     keep = [i for i, c in enumerate(DZ.COLS57) if c in cols]
     assert [DZ.COLS57[i] for i in keep] == cols, "55列の名前と順番が合わない"
     assert "m_jk_course" not in cols and "c7" not in cols
     assert sorted(c for _, cs in GRP for c in cs) == sorted(cols) and set(LAB) == set(cols)
     return {"P": P, "mk": mk, "ab": ab, "W": np.array(mk["w_market"]), "TAU": mk["tau0"], "KEEP": keep,
-            "GIX": [[cols.index(c) for c in cs] for _, cs in GRP], "cols": cols}
+            "GIX": [[cols.index(c) for c in cs] for _, cs in GRP], "cols": cols, "M1": np.array(m1["coef"], float)}
 
 
 def _csv(rows):
@@ -2378,14 +2406,101 @@ def _debut(path, out):
     return out
 
 
-def forecast(path, rid, ST):
+def read_oddsjs(path):
+    """oddsJS（/oddsJS/<ID>.do の中身）を読む。extract_odds_v50.html の readOdds と同じ読み方。"""
+    b = open(path, "rb").read()
+    try:
+        t = b.decode("utf-8")
+    except UnicodeDecodeError:
+        t = b.decode("shift_jis", errors="replace")
+    bt = re.search(r"var\s+odds_tan\s*=\s*\{([\s\S]*?)\};", t)
+    st = re.search(r'var\s+odds_status\s*=\s*"([^"]*)"', t)
+    ut = re.search(r'var\s+update_time\s*=\s*"([^"]*)"', t)
+    if not bt:
+        raise ValueError("oddsJS の単勝オッズ（odds_tan）を読めない")
+    tan = {}
+    for m in re.finditer(r'"(\d+)"\s*:\s*\[\s*"([^"]*)"\s*,\s*(true|false)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]', bt.group(1)):
+        tan[int(m.group(1))] = (m.group(2), m.group(3))
+    return {"tan": tan, "status": st.group(1) if st else "", "update": re.sub(r"[^\d: ]+", "-", ut.group(1)) if ut else ""}
+
+
+def _first(v, nums, idx):
+    return sorted(idx, key=lambda j: (-v[j], nums[j]))[0]
+
+
+def market_m1(nums, C6, ST, od=None):
+    """nums: 馬番の並び、C6: 馬ごとの c1〜c6（欠けは NaN）、od: read_oddsjs の戻り値（なければ None）。
+    戻り値: 取消・除外の印、M1 の値、市場の確率と順位、P1・有効頭数・一致。②③のスクリプト（bg_fit.py・conf_check.py）と同じ定義。"""
+    n = len(nums)
+    res = {"m1": None, "odds": None}
+    scr = [False] * n
+    if od is not None:
+        miss = [nums[k] for k in range(n) if nums[k] not in od["tan"]]
+        info = {"status": od["status"], "update": od["update"], "final": od["status"] == "2", "missing": miss}
+        if not miss:
+            vals = []
+            for k in range(n):
+                o, valid = od["tan"][nums[k]]
+                try:
+                    x = float(o)
+                except ValueError:
+                    x = float("nan")
+                ok = valid == "true" and x == x and x > 0
+                scr[k] = not ok
+                vals.append(x if ok else float("nan"))
+            run = [k for k in range(n) if not scr[k]]
+            info["n_scratch"] = n - len(run)
+            if len(run) >= 2:
+                q = np.array([1.0 / vals[k] for k in run]); m = q / q.sum()
+                mm = [float("nan")] * n
+                for k, v in zip(run, m): mm[k] = float(v)
+                mr = [0] * n
+                for r, k in enumerate(sorted(run, key=lambda j: (-mm[j], nums[j])), 1): mr[k] = r
+                info.update({"odds": [vals[k] if not scr[k] else None for k in range(n)], "m": [None if scr[k] else mm[k] for k in range(n)],
+                             "rank": [mr[k] or None for k in range(n)], "P1": float(m.max()), "neff": float(np.exp(-(m * np.log(m)).sum()))})
+            else:
+                info["error"] = "出走馬が1頭以下"
+        else:
+            info["error"] = "出走表の馬が oddsJS にない（馬番 %s）" % ",".join(map(str, miss))
+        res["odds"] = info
+    run = [k for k in range(n) if not scr[k]]
+    Z = np.zeros((n, 6))
+    for j in range(6):
+        x = np.array([C6[k][j] for k in run], float); ok = ~np.isnan(x)
+        if ok.sum() == 0: continue
+        mu = x[ok].mean(); sd = np.sqrt(((x[ok] - mu) ** 2).mean()) or 1.0
+        for k, v in zip(run, x):
+            Z[k, j] = (v - mu) / sd if v == v else 0.0
+    contrib = Z * ST["M1"]; score = contrib.sum(axis=1)
+    ar = [0] * n
+    for r, k in enumerate(sorted(run, key=lambda j: (-score[j], nums[j])), 1): ar[k] = r
+    res["m1"] = {"cols": M1_COLS, "coef": ST["M1"].tolist(), "z": [None if scr[k] else Z[k].tolist() for k in range(n)],
+                 "contrib": [None if scr[k] else contrib[k].tolist() for k in range(n)], "score": [None if scr[k] else float(score[k]) for k in range(n)],
+                 "rank": [ar[k] or None for k in range(n)], "scratch": scr}
+    o = res["odds"]
+    if o is not None and "m" in o:
+        km = _first([o["m"][k] if not scr[k] else -1 for k in range(n)], nums, run)
+        ka = _first(score, nums, run)
+        o.update({"top_market": nums[km], "top_ability": nums[ka], "agree": km == ka})
+    return res
+
+
+def forecast(path, rid, ST, odds_path=None):
     """1レース分。戻り値は辞書（JSON にできる形）。ST は load_params の戻り値。"""
     st, msg, rows = DR.run(path, rid)
     hdr, hz = _header(path)
     out = {"version": VERSION, "race_id": rid, "state": st, "message": msg,
            "venue": hdr.get("venue"), "surface": hdr.get("surface"), "dist": hdr.get("dist"), "heads": hdr.get("heads")}
+    od = read_oddsjs(odds_path) if odds_path else None
     if st == "debut":
-        return _debut(path, out)
+        out = _debut(path, out)
+        if od is not None:
+            nums = [h["num"] for h in out["horses"]]
+            r = market_m1(nums, [[float("nan")] * 6 for _ in nums], ST, od)
+            out["odds"] = r["odds"]
+            if "m" in out["odds"]:
+                out["odds"].pop("top_ability", None); out["odds"].pop("agree", None)
+        return out
     if st != "normal":
         return out
     D = pd.read_csv(io.StringIO(_csv(rows)), dtype=str, keep_default_na=False)
@@ -2411,24 +2526,28 @@ def forecast(path, rid, ST):
                    "items": [[[LAB[cols[j]], float(C[i, j])] for j in np.argsort(-np.abs(C[i]))[:8] if abs(C[i, j]) >= 0.005] for i in range(len(nums))],
                    "te_missing": {k: int(sum(1 for n in D[DZ.TE_SRC[k]] if not n or n not in mk["te"][k])) for k in DZ.TE_SRC}},
         "ability": {"items_ja": ST["ab"]["items_ja"], "parts": AB.tolist(), "total": U.tolist(), "p47": p47, "nige_boost": boost}})
+    C6 = np.column_stack([pd.to_numeric(D[c], errors="coerce") for c in M1_COLS]).astype(float).tolist()
+    r = market_m1(nums, C6, ST, od)
+    out["m1"] = r["m1"]; out["odds"] = r["odds"]
     return out
 
 
-def forecast_json(path, rid, ST):
-    return json.dumps(forecast(path, rid, ST), ensure_ascii=False)
+def forecast_json(path, rid, ST, odds_path=None):
+    return json.dumps(forecast(path, rid, ST, odds_path), ensure_ascii=False)
 </script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-2・表示2 (2026-11-13)";
-let py = null, runFn = null, parOK = false;
-const PSHA = "b34d41c2480b33ff443231e5cc6ecbb17c7144c48e8f783d9b92787155c048bb";
+const VERSION = "v5.0-own-3 (2026-11-16)";
+let py = null, runFn = null, parOK = false; const CSV = [];
+const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
 
 function refresh(){ $("bRun").disabled = !(py && parOK && $("fRace").files.length); }
 $("fRace").addEventListener("change", refresh);
+$("fOdds").addEventListener("change", () => { $("oddsCnt").textContent = $("fOdds").files.length + "件"; });
 
 async function boot(){
   try{
@@ -2459,13 +2578,13 @@ $("fPar").addEventListener("change", async e => {
   py.FS.writeFile("/v50/v50_params.json", buf);
   try { py.runPython("ST = F.load_params('/v50/v50_params.json')"); }
   catch (err) { $("parSt").innerHTML = '<span class="bad">係数のファイルの確認で止まりました: ' + escH(err) + '</span>'; return; }
-  runFn = py.runPython("lambda path, rid: F.forecast_json(path, rid, ST)");
+  runFn = py.runPython("lambda path, rid, op: F.forecast_json(path, rid, ST, op or None)");
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
 });
 
 // 網掛け: 馬名より右の数字の列ごとに、いちばん良い馬を赤、いちばん悪い馬を青、間は列の中の順位に応じたグラデーション。
 // 「予想順」「順位」は小さいほど良い。ほかは大きいほど良い。数字でない列（脚質など）は塗らない。
-const LOWER_BETTER = ["予想順", "順位"];
+const LOWER_BETTER = ["予想順", "順位", "市場順位", "M1順位", "単勝オッズ"];
 function shade(root){
   root.querySelectorAll("table.hm").forEach(tb => {
     const heads = [...tb.tHead.rows[0].cells].map(c => c.textContent.trim());
@@ -2499,7 +2618,9 @@ const pct = p => (p * 100 >= 10 ? (p * 100).toFixed(0) : (p * 100).toFixed(1)) +
 const odd = o => (o >= 100 ? o.toFixed(0) : o.toFixed(1)) + "倍";
 
 $("bRun").onclick = async () => {
-  $("bRun").disabled = true; $("out").innerHTML = "";
+  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; CSV.length = 0;
+  const OD = new Map();
+  for (const f of $("fOdds").files){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
   const files = [...$("fRace").files].map(f => [f, (f.name.match(/^(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   let i = 0;
   for (const [f, rid] of files){
@@ -2508,7 +2629,10 @@ $("bRun").onclick = async () => {
     if (!rid){ sec.innerHTML = '<p class="bad">' + escH(f.name) + ': ファイル名がレースID（16桁）で始まっていません。</p>'; continue; }
     try{
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await f.arrayBuffer()));
-      const o = JSON.parse(runFn("/tmp/race.txt", rid)); const st = o.state, msg = o.message;
+      const ofs = OD.get(rid) || []; let opath = "", oname = "";
+      if (ofs.length === 1){ py.FS.writeFile("/tmp/odds.txt", new Uint8Array(await ofs[0].arrayBuffer())); opath = "/tmp/odds.txt"; oname = ofs[0].name; }
+      const o = JSON.parse(runFn("/tmp/race.txt", rid, opath)); const st = o.state, msg = o.message;
+      const MK = marketHtml(o, rid, ofs, oname);
       const inf = { venue: o.venue, surface: o.surface, dist: o.dist, heads: o.heads, horses: o.horses || [], style: (o.horses || []).map(x => x.style),
                     nige_boost: o.ability ? o.ability.nige_boost : 0 };
       const title = escH((inf.venue || "") + " " + Number(rid.slice(-2)) + "R　" + (inf.surface || "") + (inf.dist || "") + "m" + (inf.heads ? "・" + inf.heads + "頭" : ""));
@@ -2518,7 +2642,7 @@ $("bRun").onclick = async () => {
         const am = Math.max(0.2, ...B.parts.flat().map(Math.abs)), um = Math.max(0.3, ...U.map(Math.abs));
         const cl = (v, m) => { const a = Math.min(1, Math.abs(v) / m) * 0.55; const c = v >= 0 ? "31,122,77" : "179,38,30";
           return '<td style="background:rgba(' + c + ',' + a.toFixed(3) + ')">' + (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + '</td>'; };
-        let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2>';
+        let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2>' + MK;
         h += '<h2 class="part">人気の見通し（市場の予測）</h2><p class="note">全馬が初出走のレースには対応していません（v5.0 の市場の予測モデルは、近走のある馬だけで作ったため）。</p>';
         h += '<h2 class="part">能力計（v4.7・新馬モード）<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th>' +
              B.items_ja.map(x => '<th>' + escH(x) + '</th>').join("") + '<th>能力計</th><th>順位</th><th>v4.7勝率</th></tr></thead><tbody>';
@@ -2541,7 +2665,7 @@ $("bRun").onclick = async () => {
       const byNum = Object.fromEntries(inf.horses.map(h => [h.num, h]));
       const ord = R.num.map((n, k) => k).sort((a, b) => R.p[b] - R.p[a] || R.num[a] - R.num[b]);
       const pmax = Math.max(...R.p);
-      let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2><h2 class="part">人気の見通し（市場の予測）<span class="rid">予想人気順</span></h2><div class="legend"><span>予想人気順・馬番・馬名（騎手）</span><span>想定オッズ</span></div>';
+      let h = '<h2>' + title + ' <span class="rid">' + rid + '</span></h2>' + MK + '<h2 class="part">人気の見通し（市場の予測）<span class="rid">予想人気順</span></h2><div class="legend"><span>予想人気順・馬番・馬名（騎手）</span><span>想定オッズ</span></div>';
       ord.forEach((k, r) => {
         const n = R.num[k], hz = byNum[n] || {};
         h += '<div class="hz"><span class="rk">' + (r + 1) + '</span><span class="num">' + n + '</span><span class="nm">' + escH(hz.name || "") + '<small>' + escH(hz.jockey || "") + '</small></span><span class="od">' + odd(R.odds[k]) + '</span>' +
@@ -2591,8 +2715,65 @@ $("bRun").onclick = async () => {
       sec.innerHTML = h; shade(sec);
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
   }
-  $("status").textContent = "終わりました（" + files.length + " レース）。"; $("bRun").disabled = false;
+  $("status").textContent = "終わりました（" + files.length + " レース）。"; $("bRun").disabled = false; $("bCsv").disabled = !CSV.length;
 };
+$("bCsv").onclick = () => {
+  const head = ["race_id", "market_rank", "num", "name", "odds_tan", "m", "ability_rank", "m1_score"].concat(["c1","c2","c3","c4","c5","c6"].map(c => c + "_z"), ["c1","c2","c3","c4","c5","c6"].map(c => c + "_contrib"),
+    ["scratch", "P1", "n_eff", "agree", "odds_status", "odds_update", "n_scratch"]);
+  const t = "\ufeff" + [head.join(",")].concat(CSV.map(r => r.map(escC).join(","))).join("\r\n") + "\r\n";
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], {type: "text/csv"})); a.download = "v50own3_market.csv"; a.click();
+};
+// v5.0-own-3: オッズの状態・レースの見通し・市場の表（表A）・能力（M1）の中身（表B）
+const M1LAB = ["着順", "着差", "位置", "末脚", "適性", "時計"];
+const f3 = v => v == null ? "" : (+v).toFixed(3);
+const sgn = v => Math.abs(v) < 0.005 ? "0.00" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+function marketHtml(o, rid, ofs, oname){
+  const H = o.horses || [], nums = H.map(x => x.num), byN = Object.fromEntries(H.map(x => [x.num, x]));
+  const O = o.odds, M = o.m1;
+  let h = '<h2 class="part">市場（オッズ）の見通し<span class="rid">v5.0-own-3</span></h2>';
+  if (ofs.length > 1) h += '<p class="bad">同じレースの oddsJS が ' + ofs.length + ' 個あります（' + escH(ofs.map(f => f.name).join("、")) + '）。どれを使うか決められないので、市場の情報は出しません。</p>';
+  else if (!O) h += '<p class="note">oddsJS が選ばれていないので、市場の情報（市場の順位・確率・P1・有効頭数・一致）は出していません。下の能力（M1）と今までの表だけを出します。</p>';
+  else {
+    h += '<div class="calc">オッズの状態: odds_status = ' + escH(O.status) + '（' + (O.final ? '確定' : '確定でない') + '）・更新時刻 ' + escH(O.update || "不明") +
+         '・取消・除外 ' + (O.n_scratch == null ? "-" : O.n_scratch) + '頭・ファイル ' + escH(oname) + '</div>';
+    if (O.final) h += '<p class="bad">確定オッズです（締切前のオッズではありません）。振り返り用の表示です。</p>';
+    if (O.error) h += '<p class="bad">市場の情報を出せません: ' + escH(O.error) + '</p>';
+    else {
+      const ag = O.agree == null ? '—（新馬のため能力を出さない）' : (O.agree ? '一致' : '不一致');
+      h += '<div class="calc" style="font-size:.95rem"><b>P1（市場1位の確率）: ' + pct(O.P1) + '</b>　<b>有効頭数: ' + O.neff.toFixed(1) + '頭</b><br>市場1位と能力1位: <b>' + ag + '</b>' +
+           (O.agree == null ? '' : '（市場1位 ' + O.top_market + '番・能力1位 ' + O.top_ability + '番）') + '</div>' +
+           '<p class="note">第2群の 238 レース（確定オッズで代用）では、P1 が高いほど・有効頭数が少ないほど、市場1位がよく勝った。一致・不一致は参考情報で、信頼度の目安ではない（不一致でも市場1位の方がよく勝った）。</p>';
+      const run = nums.map((n, k) => k).filter(k => O.m[k] != null).sort((a, b) => O.rank[a] - O.rank[b]);
+      const hasM1 = !!(M && M.score);
+      h += '<div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th><th>市場順位</th><th>単勝オッズ</th><th>市場の確率</th>' + (hasM1 ? '<th>M1順位</th><th>M1スコア</th>' : '') + '<th>印</th></tr></thead><tbody>';
+      run.forEach(k => {
+        const mk = [O.rank[k] === 1 ? "市" : "", hasM1 && M.rank[k] === 1 ? "能" : ""].filter(x => x).join("・");
+        h += '<tr><td>' + nums[k] + '</td><td class="l">' + escH((byN[nums[k]] || {}).name || "") + '</td><td>' + O.rank[k] + '</td><td>' + O.odds[k].toFixed(1) + '</td><td>' + (O.m[k] * 100).toFixed(1) + '%</td>' +
+             (hasM1 ? '<td>' + M.rank[k] + '</td><td>' + sgn(M.score[k]) + '</td>' : '') + '<td>' + mk + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+      const sc = nums.filter((n, k) => O.m[k] == null);
+      h += '<p class="note">市場順位の順。印: 市＝市場1位、能＝能力（M1）1位。' + (sc.length ? '取消・除外（表から除き、確率を割り直した）: ' + sc.join("・") + '番。' : '') + '見出しを押すと、その列で並べ替えます。網掛けは列ごとに、いちばん良い馬が赤、いちばん悪い馬が青。</p>';
+    }
+  }
+  if (M && M.score){
+    h += '<h2 class="part">能力（M1）の中身<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th>' + M1LAB.map(x => '<th>' + x + '</th>').join("") + '<th>M1スコア</th><th>M1順位</th></tr></thead><tbody>';
+    nums.map((n, k) => k).filter(k => M.score[k] != null).sort((a, b) => nums[a] - nums[b]).forEach(k => {
+      h += '<tr><td>' + nums[k] + '</td><td class="l">' + escH((byN[nums[k]] || {}).name || "") + '</td>' +
+           M.contrib[k].map((v, j) => '<td title="そろえた値 ' + sgn(M.z[k][j]) + ' × 係数 ' + M.coef[j].toFixed(3) + '">' + sgn(v) + '</td>').join("") + '<td>' + sgn(M.score[k]) + '</td><td>' + M.rank[k] + '</td></tr>';
+    });
+    h += '</tbody></table></div><p class="note">各項目 = そろえた値（出走馬の中で平均0・標準偏差1）× 係数（' + M1LAB.map((x, j) => x + " " + (M.coef[j] >= 0 ? "+" : "−") + Math.abs(M.coef[j]).toFixed(3)).join("・") +
+         '）。M1スコア = 6項目の合計。セルにマウスを当てると、そろえた値と係数が出ます。位置（位置取りの変化）は係数がマイナス。</p>';
+  }
+  // CSV の行
+  const runAll = nums.map((n, k) => k);
+  if (O && O.m && !O.error) runAll.forEach(k => {
+    const z = M && M.z && M.z[k] ? M.z[k].map(f3) : ["", "", "", "", "", ""], c = M && M.contrib && M.contrib[k] ? M.contrib[k].map(f3) : ["", "", "", "", "", ""];
+    CSV.push([rid, O.rank[k] || "", nums[k], (byN[nums[k]] || {}).name || "", O.odds[k] == null ? "" : O.odds[k], f3(O.m[k]), M && M.rank ? (M.rank[k] || "") : "", M && M.score ? f3(M.score[k]) : ""]
+      .concat(z, c, [O.m[k] == null ? 1 : 0, f3(O.P1), O.neff.toFixed(2), O.agree == null ? "" : (O.agree ? 1 : 0), O.status, O.update, O.n_scratch]));
+  });
+  return h;
+}
 </script>
 </body>
 </html>
