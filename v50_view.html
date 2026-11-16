@@ -103,12 +103,13 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <section>
 <h2>2. 出走表を選ぶ</h2>
 <div class="row"><input type="file" id="fRace" multiple accept=".txt,.html,.htm"></div>
-<p class="note">ファイル名はレースID（16桁）で始まるもの。何レースでも選べます（1レース数秒）。</p>
+<p class="note">ファイル名にレースID（16桁）を含むもの（例: 2026121521110105.txt、card_2026121521110105_202612151842.txt）。何レースでも選べます（1レース数秒）。</p>
 <h2 style="margin-top:12px">3. oddsJS を選ぶ（任意）</h2>
 <div class="row"><input type="file" id="fOdds" multiple><span id="oddsCnt" class="note" style="margin:0">0件</span></div>
 <p class="note">締切前に保存した odds_&lt;レースID&gt;_&lt;取得日時&gt;.txt（中身は /oddsJS/&lt;ID&gt;.do）。ファイル名の16桁のレースIDで出走表と組み合わせます。同じレースのファイルが2つ以上あるときは、そのレースの市場の情報を出しません。</p>
 <div class="row"><button id="bRun" disabled>見通しを出す</button><button id="bCsv" disabled style="background:transparent;color:var(--acc)">市場の表を CSV で保存</button></div>
 <div id="status" class="note"></div>
+<div id="recAll"></div>
 </section>
 
 <div id="out"></div>
@@ -117,8 +118,8 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。</p>
-<p class="note">ページの版: v5.0-own-3・表示2 (2026-11-16)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。</p>
+<p class="note">ページの版: v5.0-own-3・表示3 (2026-11-16)</p>
 </section>
 </main>
 
@@ -2538,7 +2539,7 @@ def forecast_json(path, rid, ST, odds_path=None):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-3・表示2 (2026-11-16)";
+const VERSION = "v5.0-own-3・表示3 (2026-11-16)";
 let py = null, runFn = null, runFnHP = null, parOK = false; const CSV = [];
 const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
@@ -2634,15 +2635,15 @@ const pct = p => (p * 100 >= 10 ? (p * 100).toFixed(0) : (p * 100).toFixed(1)) +
 const odd = o => (o >= 100 ? o.toFixed(0) : o.toFixed(1)) + "倍";
 
 $("bRun").onclick = async () => {
-  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; CSV.length = 0;
+  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; $("recAll").innerHTML = ""; CSV.length = 0; MROWS.length = 0;
   const OD = new Map();
   for (const f of $("fOdds").files){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
-  const files = [...$("fRace").files].map(f => [f, (f.name.match(/^(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  const files = [...$("fRace").files].map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   let i = 0;
   for (const [f, rid] of files){
     i++; $("status").textContent = i + " / " + files.length + " レース目を計算しています…"; await yieldNow();
     const sec = document.createElement("section"); sec.className = "race"; $("out").appendChild(sec);
-    if (!rid){ sec.innerHTML = '<p class="bad">' + escH(f.name) + ': ファイル名がレースID（16桁）で始まっていません。</p>'; continue; }
+    if (!rid){ sec.innerHTML = '<p class="bad">' + escH(f.name) + ': ファイル名にレースID（16桁）がありません。</p>'; continue; }
     try{
       py.FS.writeFile("/tmp/race.txt", new Uint8Array(await f.arrayBuffer()));
       const ofs = OD.get(rid) || []; let opath = "", oname = "";
@@ -2653,6 +2654,7 @@ $("bRun").onclick = async () => {
         if (o2.state === "normal" || o2.state === "debut" || o2.state === "mixed"){ hp = o.message || o.state; o = o2; }
       }
       const st = o.state, msg = o.message;
+      const c0 = CSV.length;
       const MK = (hp ? '<p class="note">lxml での読み取りでは止まった（' + escH(hp) + '）ので、予備の読み取り（html.parser）で計算しました。計算の中身は同じです。</p>' : '') + marketHtml(o, rid, ofs, oname);
       const inf = { venue: o.venue, surface: o.surface, dist: o.dist, heads: o.heads, horses: o.horses || [], style: (o.horses || []).map(x => x.style),
                     nige_boost: o.ability ? o.ability.nige_boost : 0 };
@@ -2674,7 +2676,7 @@ $("bRun").onclick = async () => {
              B.items_ja.map((x, i) => escH(x) + Object.values(B.points)[i]).join("・") + '）×能力差倍率' + B.scale + 'を掛けたもの。能力計はその合計、v4.7勝率 = softmax(能力計)（逃げ補正なし）。' +
              '能試時計は、日付と距離がいちばん多い組と同じ馬だけを比べる（ほかは0）。取れない値は0（中立）。見出しを押すと、その列で並べ替えます。</p>';
         if (B.warnings && B.warnings.length) h += '<pre>読み取りの警告: ' + escH(B.warnings.join("；")) + '</pre>';
-        sec.innerHTML = h; shade(sec); continue;
+        sec.innerHTML = h; shade(sec); await recordBox(sec, rid, f, ofs, CSV.slice(c0), o); continue;
       }
       if (st !== "normal"){
         const why = {debut:"全頭が初出走のレースは対象外です", mixed:"初出走馬と経験馬が混在するレースは対象外です", stop:"停止", error:"エラー"}[st] || st;
@@ -2733,17 +2735,68 @@ $("bRun").onclick = async () => {
            'v4.7勝率 = softmax(能力計 ＋ 逃げ補正)。逃げ補正は脚質が逃げの馬だけ ＋' + inf.nige_boost + '。v4.7 はこの方式で検証し、回収率100%には届かなかった。' +
            '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。見出しを押すと、その列で並べ替えます。</p>';
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
-      sec.innerHTML = h; shade(sec);
+      sec.innerHTML = h; shade(sec); await recordBox(sec, rid, f, ofs, CSV.slice(c0), o);
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
   }
   $("status").textContent = "終わりました（" + files.length + " レース）。"; $("bRun").disabled = false; $("bCsv").disabled = !CSV.length;
+  if (MROWS.length) recAllBox();
 };
-$("bCsv").onclick = () => {
-  const head = ["race_id", "market_rank", "num", "name", "odds_tan", "m", "ability_rank", "m1_score"].concat(["c1","c2","c3","c4","c5","c6"].map(c => c + "_z"), ["c1","c2","c3","c4","c5","c6"].map(c => c + "_contrib"),
-    ["scratch", "P1", "n_eff", "agree", "odds_status", "odds_update", "n_scratch"]);
-  const t = "\ufeff" + [head.join(",")].concat(CSV.map(r => r.map(escC).join(","))).join("\r\n") + "\r\n";
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], {type: "text/csv"})); a.download = "v50own3_market.csv"; a.click();
-};
+const CSVHEAD = ["race_id", "market_rank", "num", "name", "odds_tan", "m", "ability_rank", "m1_score"].concat(["c1","c2","c3","c4","c5","c6"].map(c => c + "_z"), ["c1","c2","c3","c4","c5","c6"].map(c => c + "_contrib"),
+    ["scratch", "P1", "n_eff", "agree", "odds_status", "odds_update", "n_scratch", "page_ver", "params_sha"]);
+const csvText = rows => "\ufeff" + [CSVHEAD.join(",")].concat(rows.map(r => r.map(escC).join(","))).join("\r\n") + "\r\n";
+const saveBytes = (bytes, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], {type: "text/csv"})); a.download = name; a.click(); };
+$("bCsv").onclick = () => saveBytes(new TextEncoder().encode(csvText(CSV)), "v50own3_market_" + nowStamp(new Date()) + ".csv");
+// 表示3: フォワードテストの記録の補助。読み込んだ出走表・oddsJS と、書き出す CSV の SHA-256 を計算し、記録表（manifest.csv）に貼る行と、自分宛てのメールの下書きを作る。
+// 計算の中身は変えない（表示と出力の補助だけ）。メールの宛先はページに入れない（下書きで自分のアドレスを選ぶ）。
+const MROWS = [];
+const MHEAD = ["race_id", "kind", "phase", "file", "sha256", "saved_at", "deadline", "odds_status", "odds_update", "page_ver", "params_sha", "note"];
+const pad2 = n => String(n).padStart(2, "0");
+const nowStamp = d => d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + pad2(d.getHours()) + pad2(d.getMinutes());
+const nowISO = d => d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+const stampOf = name => { const m = name.match(/_(\d{12}|\d{14})\.[A-Za-z0-9]+$/); if (!m) return ""; const s = m[1];
+  return s.slice(0, 4) + "-" + s.slice(4, 6) + "-" + s.slice(6, 8) + " " + s.slice(8, 10) + ":" + s.slice(10, 12) + (s.length > 12 ? ":" + s.slice(12, 14) : ""); };
+const sha256hex = async buf => [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
+const decodeText = buf => { try { return new TextDecoder("utf-8", {fatal: true}).decode(buf); } catch (e) { return new TextDecoder("shift_jis").decode(buf); } };
+const startOf = txt => { const m = txt.replace(/<[^>]+>/g, " ").match(/発走時刻\s*(\d{1,2}:\d{2})/); return m ? "発走 " + m[1] : ""; };
+const rowsText = rows => rows.map(r => r.map(escC).join(",")).join("\n");
+function copyMail(box, txt, subj){
+  box.querySelector(".bCopy").onclick = async () => { try { await navigator.clipboard.writeText(txt); box.querySelector(".cp").textContent = "コピーしました。"; }
+    catch (e) { const ta = box.querySelector("textarea"); ta.select(); document.execCommand("copy"); box.querySelector(".cp").textContent = "コピーしました。"; } };
+  box.querySelector(".bMail").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(MHEAD.join(",") + "\n" + txt); };
+}
+async function recordBox(sec, rid, f, ofs, rows, o){
+  const out = [], cb = await f.arrayBuffer(), dl = startOf(decodeText(cb));
+  out.push([rid, "card", "pre", f.name, await sha256hex(cb), stampOf(f.name), dl, "", "", "", "", ""]);
+  if (ofs.length === 1){
+    const ob = await ofs[0].arrayBuffer(), fin = /^oddsfinal_/.test(ofs[0].name), O = o.odds || {};
+    out.push([rid, fin ? "oddsfinal" : "oddspre", fin ? "post" : "pre", ofs[0].name, await sha256hex(ob), stampOf(ofs[0].name), dl, O.status || "", O.update || "", "", "",
+              (O.final && !fin) ? "確定オッズ（締切前のデータとして使わない）" : (!O.final && fin && O.status ? "確定でない（確定オッズとして使わない）" : "")]);
+  }
+  let view = null;
+  if (rows.length){
+    const d = new Date(), name = "view_" + rid + "_" + nowStamp(d) + ".csv", bytes = new TextEncoder().encode(csvText(rows));
+    view = { name, bytes };
+    out.push([rid, "view", "pre", name, await sha256hex(bytes), nowISO(d), dl, "", "", VERSION, PSHA, ""]);
+  }
+  MROWS.push(...out);
+  const txt = rowsText(out), box = document.createElement("div");
+  box.innerHTML = '<h2 class="part">記録（フォワードテスト用）</h2>' +
+    (view ? '<div class="row"><button class="bView">このレースの CSV を保存</button><span class="note" style="margin:0">' + escH(view.name) + '</span></div>'
+          : '<p class="note">市場の表がない（oddsJS がない・新馬で読めないなど）ので、view/ の CSV はありません。</p>') +
+    '<p class="note">記録表（manifest.csv）に貼る行（SHA-256 はこのページで計算した値。view の行は、上のボタンで保存される CSV そのものの値）:</p>' +
+    '<textarea readonly rows="' + (out.length * 3 + 1) + '" style="width:100%;font-size:.72rem;font-family:ui-monospace,monospace">' + escH(txt) + '</textarea>' +
+    '<div class="row"><button class="bCopy">行をコピー</button><button class="bMail">メールの下書きを開く</button><span class="note cp" style="margin:0"></span></div>';
+  sec.appendChild(box);
+  if (view) box.querySelector(".bView").onclick = () => saveBytes(view.bytes, view.name);
+  copyMail(box, txt, "fwd " + rid + " " + nowISO(new Date()));
+}
+function recAllBox(){
+  const txt = rowsText(MROWS), box = $("recAll");
+  box.innerHTML = '<section><h2>全レースの記録の行（' + MROWS.length + ' 行）</h2><textarea readonly rows="6" style="width:100%;font-size:.72rem;font-family:ui-monospace,monospace">' + escH(txt) + '</textarea>' +
+    '<div class="row"><button class="bCopy">行をコピー</button><button class="bMail">メールの下書きを開く</button><span class="note cp" style="margin:0"></span></div>' +
+    '<p class="note">メールは、宛先に自分のアドレスを選んで送ってください（このページは宛先を持っていません）。送った時刻が「その時刻までにそのファイルを持っていた」証拠になります。</p></section>';
+  copyMail(box, txt, "fwd " + nowISO(new Date()) + " " + MROWS.length + "行");
+}
 // v5.0-own-3: オッズの状態・レースの見通し・市場の表（表A）・能力（M1）の中身（表B）
 const M1LAB = ["着順", "着差", "位置", "末脚", "適性", "時計"];
 const f3 = v => v == null ? "" : (+v).toFixed(3);
@@ -2791,7 +2844,7 @@ function marketHtml(o, rid, ofs, oname){
   if (O && O.m && !O.error) runAll.forEach(k => {
     const z = M && M.z && M.z[k] ? M.z[k].map(f3) : ["", "", "", "", "", ""], c = M && M.contrib && M.contrib[k] ? M.contrib[k].map(f3) : ["", "", "", "", "", ""];
     CSV.push([rid, O.rank[k] || "", nums[k], (byN[nums[k]] || {}).name || "", O.odds[k] == null ? "" : O.odds[k], f3(O.m[k]), M && M.rank ? (M.rank[k] || "") : "", M && M.score ? f3(M.score[k]) : ""]
-      .concat(z, c, [O.m[k] == null ? 1 : 0, f3(O.P1), O.neff.toFixed(2), O.agree == null ? "" : (O.agree ? 1 : 0), O.status, O.update, O.n_scratch]));
+      .concat(z, c, [O.m[k] == null ? 1 : 0, f3(O.P1), O.neff.toFixed(2), O.agree == null ? "" : (O.agree ? 1 : 0), O.status, O.update, O.n_scratch, VERSION, PSHA]));
   });
   return h;
 }
