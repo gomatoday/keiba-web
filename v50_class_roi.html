@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>登録23: 分類別の買い方の回収（第2群）</title>
+<style>
+:root{--fg:#1d1d1f;--mute:#6b6b70;--line:#d9d9de;--bg:#fafafa;--card:#fff;--acc:#1f5fbf;--bad:#b3261e;--ok:#1e7a3c;--warn:#8a5a00}
+@media (prefers-color-scheme:dark){:root{--fg:#e6edf3;--mute:#9198a1;--line:#30363d;--bg:#0d1117;--card:#161b22;--acc:#4493f8;--bad:#f85149;--ok:#3fb950;--warn:#d29922}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;color:var(--fg);background:var(--bg);line-height:1.6}
+main{max-width:860px;margin:0 auto;padding:20px 14px 60px}
+h1{font-size:1.2rem;margin:0 0 4px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+h2{font-size:1rem;margin:0 0 8px}
+h3{font-size:.92rem;margin:14px 0 4px}
+.note{font-size:.85rem;color:var(--mute);margin:6px 0 0}
+.caution{border-left:4px solid var(--warn);padding:8px 12px;font-size:.88rem;background:color-mix(in srgb,var(--warn) 8%,transparent);border-radius:6px}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+button.sec{background:transparent;color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
+table{border-collapse:collapse;font-size:.8rem;white-space:nowrap;margin:4px 0}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums}
+th{background:color-mix(in srgb,var(--mute) 10%,transparent)}
+td:first-child,th:first-child{text-align:left}
+.scroll{overflow-x:auto}
+pre{white-space:pre-wrap;font-size:.78rem;background:color-mix(in srgb,var(--mute) 10%,transparent);border-radius:8px;padding:8px 10px;max-height:300px;overflow:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>登録23: 表示5の分類に応じた買い目の広さと単勝・複勝の回収（第2群の下見）</h1>
+<p class="note">事前登録: 探索_分類別の買い方の回収_事前登録.md（SHA-256 90230673…）。計算はこのブラウザの中だけで行い、ファイルはどこにも送りません。</p>
+<section>
+<div class="caution">確定オッズで分類し、確定の払戻で数えます。第2群は本命の回収を No. 2・3・11 で見ています。<b>下見で、買い方を決めるものではありません</b>（確かめるのはフォワードテスト）。事前登録どおり、<b>1回だけ</b>実行してください。</div>
+<div id="boot" class="note">計算の準備をしています（初回は1〜2分かかります）…</div>
+</section>
+
+<section>
+<h2>1. ファイルを選ぶ</h2>
+<p class="note" style="margin-top:0"><b>a. 集計のCSV</b>（rank_compare_1.csv。②③と同じファイル。SHA-256 27c889ff… のときだけ使います）</p>
+<div class="row"><input type="file" id="fRc" accept=".csv"><span id="cRc" class="note" style="margin:0"></span></div>
+<p class="note"><b>b. 第2群の oddsJS</b>（js.zip の中身。ファイル名がレースID 16桁で始まるもの。256件）</p>
+<div class="row"><input type="file" id="fJs" multiple><span id="cJs" class="note" style="margin:0">0件</span></div>
+<p class="note"><b>c. 第2群の結果のページ</b>（成績・払戻金のページの .txt。ファイル名がレースID 16桁で始まるもの）</p>
+<div class="row"><input type="file" id="fRes" multiple accept=".txt,.html,.htm"><span id="cRes" class="note" style="margin:0">0件</span></div>
+<p class="note">出走表は要りません（a の集計のCSVに、出走表から読んだ分が入っています）。第2群（9/14〜10/13）より外のレースのファイルが混ざっていても、計算では使いません。</p>
+</section>
+
+<section>
+<h2>2. 計算する（1回だけ）</h2>
+<div class="row"><button id="bRun" disabled>計算する</button></div>
+<div id="status" class="note"></div>
+<div id="checks"></div>
+</section>
+
+<section id="outSec" hidden>
+<h2>3. 結果</h2>
+<div class="row"><button id="bMd" class="sec">結果を保存（探索_分類別の買い方の回収_結果.md）</button><button id="bRo" class="sec">払戻の表を保存（result_only.csv）</button></div>
+<div id="out" class="scroll"></div>
+</section>
+
+<section>
+<h2>このページについて</h2>
+<p class="note">計算のコードは bg_fit.py（4916fb44…）・odds_from_js.py（0763b6c1…）・class_roi.py（4cc52946…）をそのまま埋め込んだもの（ページで読み込んだときに SHA-256 を確かめる）。手順: ① oddsJS と集計のCSVから odds_from_js.csv を作る（②③で使ったもの d9a2d8d0… と一致するかを表示）。② 結果のページの払戻の表（単勝・複勝）を読む（extract_result_only_v50.html と同じ読み方）。③ class_roi.py を1回動かす。</p>
+<p class="note">ページの版: class-roi-page 1 (2026-11-17)</p>
+</section>
+</main>
+
+<script type="text/plain" id="py-bg_fit">"""自分用 v5.0-own-3 の準備: 市場の確率の補正 β と、能力の上乗せ γ の推定（第2群の確定 oddsJS を使うバックテスト）。
+事前登録: claude/v5.0/探索_βγの推定_事前登録.md
+使い方: python bg_fit.py rank_compare_1.csv odds_raw.csv ability_coef_v1.json 結果.md
+
+モデル（勝ち馬の多項ロジット。s_i が大きいほど勝ちやすい。p_i = exp(s_i) / Σ exp(s_j)）
+  A0 市場だけ          s = log m
+  A1 市場を β で補正     s = β·log m
+  A2 総合              s = β·log m + γ·a     （a = M1 の能力のスコア）
+  参考 能力だけ          s = t·a
+  参考 総合（M2）        s = β·log m + γ·a2    （a2 = M2 の能力のスコア。判断には使わない）
+  m_i = (1/確定単勝オッズ_i) を出走馬の中で合計1に割ったもの
+"""
+import sys, re, json, hashlib
+import numpy as np, pandas as pd
+from scipy.optimize import minimize
+
+VERSION = "bg-fit-1 (2026-11-16)"
+G2 = ("20260914", "20261013")
+SEED, NB = 20261116, 2000
+MIN_DLL = 0.003
+
+
+def sha(p):
+    return hashlib.sha256(open(p, "rb").read()).hexdigest()
+
+
+def resolve_fin(g):
+    """着順の文字を数に。同着は第2群の検定（stage2_explore.py）と同じ扱い。"""
+    fins, times = g["res_fin"].tolist(), g["res_time"].tolist()
+    nums = {int(f) for f in fins if re.fullmatch(r"\d+", f)}
+    out = []
+    for f, t in zip(fins, times):
+        if re.fullmatch(r"\d+", f):
+            out.append(float(f))
+        elif f == "同着":
+            cand = [int(x) for x, u in zip(fins, times) if u == t and re.fullmatch(r"\d+", x)]
+            ok = [p for p in cand if p + 1 not in nums]
+            out.append(float(min(ok)) if ok else (float(max(cand)) if cand else np.nan))
+        else:
+            out.append(np.nan)
+    return pd.Series(out, index=g.index)
+
+
+def zscore_race(D, cols):
+    X = np.zeros((len(D), len(cols)))
+    for j, c in enumerate(cols):
+        v = pd.to_numeric(D[c], errors="coerce").astype(float).values
+        for a, b in D.attrs["bounds"]:
+            x = v[a:b]; ok = ~np.isnan(x)
+            if ok.sum() == 0: continue
+            mu = x[ok].mean(); sd = np.sqrt(((x[ok] - mu) ** 2).mean()) or 1.0
+            X[a:b, j] = np.where(ok, (x - mu) / sd, 0.0)
+    return X
+
+
+def load(rc_path, odds_path):
+    A = pd.read_csv(rc_path, encoding="utf-8-sig", dtype={"race_id": str}, float_precision="round_trip")
+    O = pd.read_csv(odds_path, encoding="utf-8-sig", dtype=str, keep_default_na=False)
+    A = A[(A.race_id.str[:8] >= G2[0]) & (A.race_id.str[:8] <= G2[1])].copy()
+    O = O[(O.race_id.str[:8] >= G2[0]) & (O.race_id.str[:8] <= G2[1])].copy()
+    O = O[O["num"].str.fullmatch(r"\d+")].copy()
+    O["num_i"] = O["num"].astype(int); A["num_i"] = A["num"].astype(int)
+    O["pos"] = O.groupby("race_id", group_keys=False).apply(resolve_fin)
+    O["odds"] = pd.to_numeric(O["odds_tan"], errors="coerce")
+    O["scr"] = O["res_fin"].str.contains("取消|除外") | O["card_row_text"].str.contains("取消|除外")
+    excl, keep, n_scr = [], [], 0
+    for rid in sorted(set(O.race_id) | set(A.race_id)):
+        o = O[O.race_id == rid]; a = A[A.race_id == rid]
+        if o.empty: excl.append((rid, "oddsJS つきの抽出にない")); continue
+        if a.empty: excl.append((rid, "集計のCSVにない（新馬・混在・読み取りの失敗など）")); continue
+        run = o[~o.scr]; n_scr += int(o.scr.sum())
+        if not set(run.num_i) <= set(a.num_i): excl.append((rid, "出走馬が集計のCSVにない")); continue
+        if (o["odds_status"] != "2").any(): excl.append((rid, "確定オッズでない（odds_status≠2）")); continue
+        if run["odds"].isna().any() or (run["odds_tan_valid"] != "true").any() or (run["odds"] <= 0).any():
+            excl.append((rid, "出走馬の確定単勝オッズが欠けている")); continue
+        nw = int((run["pos"] == 1).sum())
+        if nw == 0: excl.append((rid, "勝ち馬が出走馬の中にいない")); continue
+        if nw > 1: excl.append((rid, "1着同着")); continue
+        if len(run) < 2: excl.append((rid, "出走馬が1頭以下")); continue
+        keep.append(rid)
+    R = O[O.race_id.isin(keep) & ~O.scr][["race_id", "num_i", "odds", "pos", "res_pop"]]
+    D = R.merge(A.drop(columns=["fin"]), on=["race_id", "num_i"]).sort_values(["race_id", "num_i"]).reset_index(drop=True)
+    rid = D.race_id.values
+    st = np.r_[0, np.where(rid[1:] != rid[:-1])[0] + 1, len(rid)]
+    D.attrs["bounds"] = list(zip(st[:-1], st[1:]))
+    D["fin"] = D["pos"]
+    return D, excl, n_scr
+
+
+def main(rc_path, odds_path, coef_path, outp):
+    L = []; pr = lambda *a: L.append(" ".join(str(x) for x in a))
+    C = json.load(open(coef_path, encoding="utf-8"))
+    D, excl, n_scr = load(rc_path, odds_path)
+    B = D.attrs["bounds"]; R = len(B)
+    ridx = np.zeros(len(D), int)
+    for k, (a, b) in enumerate(B): ridx[a:b] = k
+    win = (D["fin"].values == 1)
+    # 市場の確率
+    q = 1.0 / D["odds"].values
+    Z = np.bincount(ridx, q); m = q / Z[ridx]; lm = np.log(m)
+    # 能力のスコア（固定した係数。レースの中で標準化。取消の馬は除いた出走馬で）
+    sc = {}
+    for nm in ("M1", "M2"):
+        md = C["models"][nm]
+        sc[nm] = zscore_race(D, md["cols"]) @ np.array(md["coef"])
+    a1, a2 = sc["M1"], sc["M2"]
+    day = D.race_id.str[:8].values
+    rday = np.array([day[a] for a, b in B]); days = sorted(set(rday)); dk = np.array([days.index(x) for x in rday])
+    wi = np.array([a + int(np.where(win[a:b])[0][0]) for a, b in B])
+
+    def llr(s):
+        """レースごとの勝ち馬の対数尤度。"""
+        mx = np.array([s[a:b].max() for a, b in B])
+        e = np.exp(s - mx[ridx]); lz = np.log(np.bincount(ridx, e)) + mx
+        return s[wi] - lz
+
+    feats = {"A0": [], "A1": [lm], "A2": [lm, a1], "ABL": [a1], "A2M2": [lm, a2], "ABL2": [a2]}
+
+    def score(name, p):
+        if name == "A0": return lm.copy()
+        return sum(pp * f for pp, f in zip(p, feats[name]))
+
+    x0 = {"A1": [1.0], "A2": [1.0, 0.0], "ABL": [1.0], "A2M2": [1.0, 0.0], "ABL2": [1.0]}
+
+    def fit(name, wt, start=None):
+        if name == "A0": return np.array([])
+        F = np.vstack(feats[name]).T
+        def f(p):
+            s = F @ p
+            mx = np.array([s[a:b].max() for a, b in B]); e = np.exp(s - mx[ridx]); Zr = np.bincount(ridx, e)
+            ll = s[wi] - np.log(Zr) - mx
+            P = e / Zr[ridx]
+            g = F[wi] - np.vstack([np.bincount(ridx, P * F[:, j]) for j in range(F.shape[1])]).T
+            return -(wt * ll).sum(), -(wt[:, None] * g).sum(0)
+        r = minimize(f, np.array(start if start is not None else x0[name], float), jac=True, method="BFGS")
+        return r.x
+
+    one = np.ones(R)
+    names = ["A1", "A2", "ABL", "A2M2", "ABL2"]
+    est = {n: fit(n, one) for n in names}
+    rng = np.random.default_rng(SEED)
+    boot = {n: [] for n in names}
+    for _ in range(NB):
+        cnt = np.bincount(rng.choice(len(days), len(days), replace=True), minlength=len(days)).astype(float)
+        wt = cnt[dk]
+        for n in names: boot[n].append(fit(n, wt, est[n]))
+    ci = {n: np.percentile(np.array(boot[n]), [2.5, 97.5], axis=0) for n in names}
+    # 1日抜きCV
+    cv = {n: np.zeros(R) for n in ["A0"] + names}
+    cvs = {n: np.zeros(len(D)) for n in ["A0"] + names}
+    for k in range(len(days)):
+        tr = (dk != k).astype(float); te = dk == k; teh = te[ridx]
+        for n in ["A0"] + names:
+            p = fit(n, tr, est.get(n)); s = score(n, p)
+            cv[n][te] = llr(s)[te]; cvs[n][teh] = s[teh]
+
+    def cse(x):
+        mu = x.mean(); S = pd.Series(x - mu).groupby(dk).sum().values; G = len(S)
+        return mu, np.sqrt(G / (G - 1) * (S ** 2).sum()) / len(x)
+
+    def top(s):
+        w = t3 = 0
+        for a, b in B:
+            nums = D.num_i.values[a:b]; i = a + sorted(range(b - a), key=lambda j: (-s[a + j], nums[j]))[0]
+            w += D.fin.values[i] == 1; t3 += D.fin.values[i] <= 3
+        return w / R, t3 / R
+
+    def spear(s):
+        out = []
+        for a, b in B:
+            x = pd.Series(-s[a:b]).rank().values; y = pd.Series(D.fin.fillna(99).values[a:b]).rank().values
+            if b - a > 2 and x.std() > 0 and y.std() > 0: out.append(np.corrcoef(x, y)[0, 1])
+        return float(np.mean(out))
+
+    def first(s):
+        return np.array([a + sorted(range(b - a), key=lambda j: (-s[a + j], D.num_i.values[a + j]))[0] for a, b in B])
+
+    pr("# 市場の確率の補正 β と能力の上乗せ γ の推定（第2群の確定 oddsJS。自分用・趣味の探索）")
+    pr("")
+    pr("- ツール: %s ／ 事前登録: claude/v5.0/探索_βγの推定_事前登録.md" % VERSION)
+    pr("- 入力の SHA-256: 集計のCSV %s ／ oddsJS の抽出 %s ／ 能力の係数 %s" % (sha(rc_path)[:12], sha(odds_path)[:12], sha(coef_path)[:12]))
+    pr("- 第2群の使用: 12件目（使用履歴の No. 12）。確定オッズを締切前のオッズの代わりに使った結果（代用による差は未測定）")
+    pr("- 対象: %d レース・%d 頭・%d 開催日（除いた馬: 取消・除外 %d 頭）" % (R, len(D), len(days), n_scr))
+    ex = pd.Series([r for _, r in excl]).value_counts() if excl else pd.Series(dtype=int)
+    pr("- 除いたレース: %d（%s）" % (len(excl), "、".join("%s %d" % (k, v) for k, v in ex.items()) or "なし"))
+    pr("")
+    pr("## 1. 推定した値（全体での推定。95%%区間は開催日単位のブートストラップ %d 回）" % NB)
+    pr("")
+    pr("| モデル | β（市場の補正） | γ（能力の上乗せ） |")
+    pr("|---|---|---|")
+    pr("| A1 市場を β で補正 | %.3f [%.3f, %.3f] | - |" % (est["A1"][0], ci["A1"][0][0], ci["A1"][1][0]))
+    pr("| A2 総合（M1） | %.3f [%.3f, %.3f] | %+.3f [%+.3f, %+.3f] |" % (est["A2"][0], ci["A2"][0][0], ci["A2"][1][0], est["A2"][1], ci["A2"][0][1], ci["A2"][1][1]))
+    pr("| 参考 総合（M2） | %.3f [%.3f, %.3f] | %+.3f [%+.3f, %+.3f] |" % (est["A2M2"][0], ci["A2M2"][0][0], ci["A2M2"][1][0], est["A2M2"][1], ci["A2M2"][0][1], ci["A2M2"][1][1]))
+    pr("| 参考 能力だけ（M1） | - | t = %.3f [%.3f, %.3f] |" % (est["ABL"][0], ci["ABL"][0][0], ci["ABL"][1][0]))
+    pr("| 参考 能力だけ（M2） | - | t = %.3f [%.3f, %.3f] |" % (est["ABL2"][0], ci["ABL2"][0][0], ci["ABL2"][1][0]))
+    pr("")
+    pr("## 2. 1日抜きCVでの比べ（勝ち馬の対数尤度のレース平均。SE は開催日単位）")
+    pr("")
+    pr("| モデル | 勝ち馬の対数尤度 | 1位の勝率 | 1位の3着内率 | 着順との順位相関 |")
+    pr("|---|---|---|---|---|")
+    lab = {"A0": "A0 市場だけ", "A1": "A1 市場を β で補正", "A2": "A2 総合（M1）", "ABL": "参考 能力だけ（M1）", "A2M2": "参考 総合（M2）", "ABL2": "参考 能力だけ（M2）"}
+    for n in ["A0", "A1", "A2", "ABL", "A2M2", "ABL2"]:
+        w, t3 = top(cvs[n])
+        pr("| %s | %.4f | %.1f%% | %.1f%% | %.3f |" % (lab[n], cv[n].mean(), 100 * w, 100 * t3, spear(cvs[n])))
+    pr("")
+    pr("（1位の勝率・3着内率・順位相関は、β では変わらない。A0 と A1 は同じ順位になる。）")
+    pr("")
+    d10, s10 = cse(cv["A1"] - cv["A0"]); d21, s21 = cse(cv["A2"] - cv["A1"]); dm, sm_ = cse(cv["A2M2"] - cv["A1"])
+    pr("| 差 | ΔLL | SE | 正規近似の95%区間 |")
+    pr("|---|---|---|---|")
+    for t, d_, s_ in (("A1 − A0（β の補正の効き目）", d10, s10), ("A2 − A1（M1 の上乗せ）", d21, s21), ("参考 総合（M2） − A1", dm, sm_)):
+        pr("| %s | %+.5f | %.5f | [%+.5f, %+.5f] |" % (t, d_, s_, d_ - 1.96 * s_, d_ + 1.96 * s_))
+    pr("")
+    f0, f2 = first(cvs["A0"]), first(cvs["A2"])
+    diff = f0 != f2
+    pr("## 3. 総合の1位が市場の1位と違うレース（1日抜きCVの A2）")
+    pr("")
+    pr("- 違うレース: %d / %d（%.1f%%）" % (diff.sum(), R, 100 * diff.mean()))
+    if diff.sum():
+        pr("- そのレースでの勝ち: 市場の1位 %d、総合の1位 %d" % ((D.fin.values[f0[diff]] == 1).sum(), (D.fin.values[f2[diff]] == 1).sum()))
+    pr("")
+    pr("## 4. 規則の適用（事前登録のとおり）")
+    pr("")
+    r1 = "採用する（見通しのページで、β で補正した市場の確率を表示する。β = %.3f）" % est["A1"][0] if d10 > 0 else "採用しない（β = 1 のまま表示する）"
+    pr("- β の補正: ΔLL(A1 − A0) = %+.5f %s 0 → %s" % (d10, ">" if d10 > 0 else "≤", r1))
+    g, glo, ghi = est["A2"][1], ci["A2"][0][1], ci["A2"][1][1]
+    ok = g > 0 and glo > 0 and d21 >= MIN_DLL
+    pr("- 総合順位: γ = %+.3f、95%%区間 [%+.3f, %+.3f]（0 を%s）、ΔLL(A2 − A1) = %+.5f（+%.3f %s）→ %s" % (
+        g, glo, ghi, "含まない" if (glo > 0 or ghi < 0) else "含む", d21, MIN_DLL, "以上" if d21 >= MIN_DLL else "未満",
+        "表示する候補とする（係数を固定して v5.0-own-3 に載せるかはユーザーが決める）" if ok else "表示しない（能力は別の列で並べる）"))
+    up = d21 + 1.96 * s21
+    if ok:
+        msg = "総合順位を表示する候補になったので、この判断には使わない。"
+    elif up >= MIN_DLL:
+        msg = "95%%区間の上限 %+.5f が +%.3f 以上。第2群だけでは +%.3f の上乗せを否定できない（データが足りない可能性がある）。第3群を足すかはユーザーが決める。" % (up, MIN_DLL, MIN_DLL)
+    else:
+        msg = "95%%区間の上限 %+.5f が +%.3f 未満。第2群で +%.3f 以上の上乗せは、ほぼ否定できる（第3群を足す必要は小さい）。第3群を足すかはユーザーが決める。" % (up, MIN_DLL, MIN_DLL)
+    pr("- データ量の目安: ΔLL(A2 − A1) の SE = %.5f。%s" % (s21, msg))
+    txt = "\n".join(L) + "\n"
+    open(outp, "w", encoding="utf-8").write(txt)
+    print(txt)
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:5])
+</script>
+<script type="text/plain" id="py-odds_from_js">"""第2群の oddsJS のファイル（<レースID>.do.js）と rank_compare_1.csv の着順から、bg_fit.py が読む形の表を作る。
+（事前登録では入力を odds_raw.csv としていたが、届いたのが oddsJS のファイルだったため。計算の規則は変えない）
+使い方: python odds_from_js.py <oddsJS のフォルダ> rank_compare_1.csv odds_from_js.csv
+
+作る欄: race_id, num, odds_tan, odds_tan_valid, odds_status, odds_update, res_fin, res_time, res_pop, card_row_text
+- odds_tan・odds_tan_valid・odds_status・odds_update: oddsJS の値そのもの（extract_odds_v50.html の readOdds と同じ読み方）
+- res_fin: rank_compare_1.csv の fin（数なら整数の文字）。
+  oddsJS で有効でない（valid が true でない）うえに、着順もない馬は「取消」とする（取消・除外の馬として出走馬から除く）。
+  それ以外で着順がない馬は空（出走馬に残す）。
+- rank_compare_1.csv にあって oddsJS にない馬で、着順のある馬は、オッズを空にして入れる（そのレースは「オッズの欠け」で除かれる）。
+- res_time・res_pop・card_row_text は空（res_time は「同着」の文字の解決にだけ使う欄。rank_compare_1.csv の着順は数なので使わない）。
+"""
+import sys, re, glob, os, csv
+import pandas as pd
+
+RE_E = re.compile(r'"(\d+)"\s*:\s*\[\s*"([^"]*)"\s*,\s*(true|false)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]')
+
+
+def read_js(path):
+    b = open(path, "rb").read()
+    try:
+        s = b.decode("utf-8")
+    except UnicodeDecodeError:
+        s = b.decode("shift_jis", errors="replace")
+    bt = re.search(r"var\s+odds_tan\s*=\s*\{([\s\S]*?)\};", s)
+    st = re.search(r'var\s+odds_status\s*=\s*"([^"]*)"', s)
+    ut = re.search(r'var\s+update_time\s*=\s*"([^"]*)"', s)
+    tan = {m[0]: (m[1], m[2]) for m in RE_E.findall(bt.group(1))} if bt else {}
+    return tan, (st.group(1) if st else ""), (re.sub(r"[^\d: ]+", "-", ut.group(1)) if ut else "")
+
+
+def main(jsdir, rc_path, outp):
+    A = pd.read_csv(rc_path, encoding="utf-8-sig", dtype={"race_id": str}, float_precision="round_trip")
+    fin = {(r, int(n)): f for r, n, f in zip(A.race_id, A.num, A.fin)}
+    nums_rc = A.groupby("race_id")["num"].apply(lambda s: set(int(x) for x in s)).to_dict()
+    rows = []
+    files = sorted(glob.glob(os.path.join(jsdir, "*")))
+    for p in files:
+        m = re.match(r"(\d{16})", os.path.basename(p))
+        if not m: continue
+        rid = m.group(1)
+        tan, status, upd = read_js(p)
+        seen = set()
+        for num, (odds, valid) in tan.items():
+            k = (rid, int(num)); f = fin.get(k)
+            has = f is not None and not pd.isna(f)
+            rf = str(int(f)) if has else ("取消" if valid != "true" else "")
+            rows.append([rid, num, odds, valid, status, upd, rf, "", "", ""]); seen.add(int(num))
+        for n in sorted(nums_rc.get(rid, set()) - seen):
+            f = fin.get((rid, n))
+            if f is not None and not pd.isna(f):
+                rows.append([rid, str(n), "", "", status, upd, str(int(f)), "", "", ""])
+    with open(outp, "w", encoding="utf-8-sig", newline="") as fo:
+        w = csv.writer(fo)
+        w.writerow(["race_id", "num", "odds_tan", "odds_tan_valid", "odds_status", "odds_update", "res_fin", "res_time", "res_pop", "card_row_text"])
+        w.writerows(rows)
+    print("oddsJS のファイル %d 件 → %d 行" % (len(files), len(rows)))
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:4])
+</script>
+<script type="text/plain" id="py-class_roi"># -*- coding: utf-8 -*-
+"""自分用: レース分類（表示5）に応じて買い目の広さを変えたときの単勝・複勝の回収（第2群。事前登録: 探索_分類別の買い方の回収_事前登録.md）。
+使い方: python class_roi.py rank_compare_1.csv odds_from_js.csv result_only.csv 出力.md
+- 対象・除外・着順は bg_fit.py の load をそのまま使う（②③と同じ 238 レースの見込み）。
+- 分類は表示5（v50_view.html f4648a36…）と同じ式。--dump で P1・割合・分類の一覧だけを書き出す（JavaScript との一致の確認用。着順・払戻は出さない）。
+- 払戻は結果ページの払戻の表（result_only.csv の tansho・fukusho。"馬番:金額|馬番:金額"。100円あたり）。"""
+import sys, hashlib, math
+import numpy as np, pandas as pd
+sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+import bg_fit as B
+
+P1CUT = [0.282, 0.358, 0.433, 0.557]
+NECUT = [0.387, 0.470, 0.547, 0.611]
+CLS = ["堅い", "ふつう", "混戦"]
+FR = {"1/3": 1 / 3, "1/2": 1 / 2, "2/3": 2 / 3}
+STRAT = [("固定1", {"堅い": "1/3", "ふつう": "1/3", "混戦": "1/3"}),
+         ("固定2", {"堅い": "1/2", "ふつう": "1/2", "混戦": "1/2"}),
+         ("固定3", {"堅い": "2/3", "ふつう": "2/3", "混戦": "2/3"}),
+         ("可変", {"堅い": "1/3", "ふつう": "1/2", "混戦": "2/3"})]
+SEED, NB = 20261117, 2000
+
+
+def level(v, cuts):   # 表示5の lv と同じ（区切り以上なら上の段）
+    return sum(1 for c in cuts if v >= c)
+
+
+def classify(p1, ratio):
+    s = (level(p1, P1CUT) + (4 - level(ratio, NECUT))) / 2
+    return "堅い" if s >= 3 else ("混戦" if s <= 1 else "ふつう")
+
+
+def nbuy(n, f):   # 四捨五入（0.5 は切り上げ）、最低1頭
+    return max(1, int(math.floor(n * f + 0.5 + 1e-9)))
+
+
+def races(D):
+    out = []
+    for rid, g in D.groupby("race_id", sort=True):
+        g = g.sort_values("num_i")
+        nums = g.num_i.tolist(); q = 1 / g.odds.values; m = q / q.sum()
+        order = sorted(range(len(nums)), key=lambda k: (-m[k], nums[k]))
+        p1 = float(m.max()); ne = float(np.exp(-(m * np.log(m)).sum())); n = len(nums)
+        out.append({"rid": rid, "day": rid[:8], "n": n, "P1": p1, "ratio": ne / n, "neff": ne,
+                    "rank": [nums[k] for k in order], "cls": classify(p1, ne / n)})
+    return out
+
+
+def pays(s):
+    d = {}
+    for x in str(s or "").split("|"):
+        if ":" in x:
+            a, b = x.split(":", 1)
+            try: d[int(a)] = d.get(int(a), 0) + float(b)
+            except ValueError: pass
+    return d
+
+
+def main(rc, od, ro, outp, dump=False):
+    D, excl, n_scr = B.load(rc, od)
+    R = races(D)
+    if dump:
+        pd.DataFrame([{"race_id": r["rid"], "P1": r["P1"], "ratio": r["ratio"], "cls": r["cls"]} for r in R]).to_csv(outp, index=False)
+        return
+    P = pd.read_csv(ro, dtype=str, keep_default_na=False, encoding="utf-8-sig").drop_duplicates("race_id").set_index("race_id")
+    miss = [r["rid"] for r in R if r["rid"] not in P.index]
+    if miss:
+        sys.exit("払戻の表がないレース: %s" % ",".join(miss[:10]))
+    for r in R:
+        r["tan"] = pays(P.loc[r["rid"], "tansho"]); r["fuku"] = pays(P.loc[r["rid"], "fukusho"])
+    # 単勝の払戻の表と確定オッズ・勝ち馬の確認（記録）
+    chk_tan = sum(1 for r in R if len(r["tan"]) != 1)
+    nofuku = [r["rid"] for r in R if not r["fuku"]]
+
+    def bet(r, frac, kind, sl=None):
+        if kind == "fuku" and not r["fuku"]: return None
+        k = nbuy(r["n"], FR[frac]); hs = r["rank"][:k] if sl is None else r["rank"][sl(r):k]
+        tb = r[kind]; return (100 * len(hs), sum(tb.get(h, 0) for h in hs), sum(1 for h in hs if h in tb), len(hs))
+
+    def rows_for(frac_of, kind, keep=lambda r: True, sl=None):
+        out = []
+        for r in R:
+            if not keep(r): continue
+            x = bet(r, frac_of(r), kind, sl)
+            if x and x[3] > 0: out.append((r["day"],) + x)
+        return out
+
+    rng = np.random.default_rng(SEED)
+    days = sorted({r["day"] for r in R})
+    idx = [rng.integers(0, len(days), len(days)) for _ in range(NB)]
+
+    def roi_ci(rows):
+        if not rows: return None
+        df = pd.DataFrame(rows, columns=["day", "st", "py", "hit", "pt"]); g = df.groupby("day")[["st", "py"]].sum().reindex(days, fill_value=0)
+        st, py = g.st.values, g.py.values
+        bs = [py[i].sum() / st[i].sum() for i in idx if st[i].sum() > 0]
+        mx = df.py.max()
+        return {"races": len(df), "pt": int(df.pt.sum()), "st": int(df.st.sum()), "hit": int(df.hit.sum()), "py": float(df.py.sum()),
+                "roi": df.py.sum() / df.st.sum(), "lo": np.percentile(bs, 2.5), "hi": np.percentile(bs, 97.5),
+                "x1": (df.py.sum() - mx) / df.st.sum(), "g": g}
+
+    L = ["# 自分用: レース分類（表示5）に応じた買い目の広さと単勝・複勝の回収（第2群。結果）", "",
+         "事前登録: 探索_分類別の買い方の回収_事前登録.md。スクリプト: class_roi.py（SHA-256 %s）。" % hashlib.sha256(open(__file__, "rb").read()).hexdigest(),
+         "入力: %s（%s）・%s（%s）・%s（%s）。" % (rc, hashlib.sha256(open(rc, "rb").read()).hexdigest()[:8], od, hashlib.sha256(open(od, "rb").read()).hexdigest()[:8],
+                                            ro, hashlib.sha256(open(ro, "rb").read()).hexdigest()[:8]),
+         "**確定オッズで分類し、確定の払戻で数えている。第2群は本命の回収を No. 2・3・11 で見ている。下見で、買い方を決めるものではない。**", "",
+         "対象: %d レース・%d 開催日（除いたレース %d。取消・除外 %d 頭）。単勝の払戻の件数が1でないレース %d。複勝の発売がないレース %d（複勝の集計から除く）。" %
+         (len(R), len(days), len(excl), n_scr, chk_tan, len(nofuku)), ""]
+    L += ["## 1. 分類ごとのレース数", "", "| 分類 | レース | P1 の平均 | 有効頭数÷出走頭数の平均 | 出走頭数の平均 |", "|---|--:|--:|--:|--:|"]
+    for c in CLS:
+        rr = [r for r in R if r["cls"] == c]
+        L.append("| %s | %d | %.3f | %.3f | %.1f |" % (c, len(rr), np.mean([r["P1"] for r in rr]) if rr else float("nan"),
+                                                     np.mean([r["ratio"] for r in rr]) if rr else float("nan"), np.mean([r["n"] for r in rr]) if rr else float("nan")))
+    res = {}
+    for kind, kj in (("tan", "単勝"), ("fuku", "複勝")):
+        L += ["", "## %d. 買い方ごとの回収（%s）" % (2 if kind == "tan" else 3, kj), "", "| 買い方 | レース | 点数 | 購入額 | 的中数 | 的中率（点あたり） | 回収率 [95%区間] | 最大1本を除く |", "|---|--:|--:|--:|--:|--:|--:|--:|"]
+        for nm, mp in STRAT:
+            x = roi_ci(rows_for(lambda r: mp[r["cls"]], kind)); res[(kind, nm)] = x
+            L.append("| %s | %d | %d | %d | %d | %.1f%% | %.1f%% [%.1f, %.1f] | %.1f%% |" % (nm, x["races"], x["pt"], x["st"], x["hit"], 100 * x["hit"] / x["pt"],
+                                                                                    100 * x["roi"], 100 * x["lo"], 100 * x["hi"], 100 * x["x1"]))
+        a, b = res[(kind, "可変")]["g"], res[(kind, "固定2")]["g"]
+        d0 = a.py.sum() / a.st.sum() - b.py.sum() / b.st.sum()
+        ds = [a.py.values[i].sum() / a.st.values[i].sum() - b.py.values[i].sum() / b.st.values[i].sum() for i in idx]
+        L += ["", "**主な差（%s）: 回収率（可変）− 回収率（固定2）= %+.1fpt [%+.1f, %+.1f]**" % (kj, 100 * d0, 100 * np.percentile(ds, 2.5), 100 * np.percentile(ds, 97.5))]
+        for o in ("固定1", "固定3"):
+            c_ = res[(kind, o)]["g"]
+            e0 = a.py.sum() / a.st.sum() - c_.py.sum() / c_.st.sum()
+            es = [a.py.values[i].sum() / a.st.values[i].sum() - c_.py.values[i].sum() / c_.st.values[i].sum() for i in idx]
+            L.append("- 記録: 可変 − %s = %+.1fpt [%+.1f, %+.1f]" % (o, 100 * e0, 100 * np.percentile(es, 2.5), 100 * np.percentile(es, 97.5)))
+        L += ["", "### 分類 × 広さ（%s）" % kj, "", "| 分類 | 広さ | レース | 点数 | 的中率（点あたり） | 回収率 [95%区間] | 最大1本を除く |", "|---|---|--:|--:|--:|--:|--:|"]
+        for c in CLS:
+            for f in FR:
+                x = roi_ci(rows_for(lambda r, f=f: f, kind, keep=lambda r, c=c: r["cls"] == c))
+                if x: L.append("| %s | %s | %d | %d | %.1f%% | %.1f%% [%.1f, %.1f] | %.1f%% |" % (c, f, x["races"], x["pt"], 100 * x["hit"] / x["pt"], 100 * x["roi"], 100 * x["lo"], 100 * x["hi"], 100 * x["x1"]))
+        L += ["", "### 広げた分の馬だけの回収（%s）" % kj, "", "| 分類 | 広げた分 | レース | 点数 | 的中率（点あたり） | 回収率 [95%区間] |", "|---|---|--:|--:|--:|--:|"]
+        for c in CLS:
+            for lab, f0, f1 in (("1/3→1/2", "1/3", "1/2"), ("1/2→2/3", "1/2", "2/3")):
+                x = roi_ci(rows_for(lambda r, f1=f1: f1, kind, keep=lambda r, c=c: r["cls"] == c, sl=lambda r, f0=f0: nbuy(r["n"], FR[f0])))
+                if x: L.append("| %s | %s | %d | %d | %.1f%% | %.1f%% [%.1f, %.1f] |" % (c, lab, x["races"], x["pt"], 100 * x["hit"] / x["pt"], 100 * x["roi"], 100 * x["lo"], 100 * x["hi"]))
+                else: L.append("| %s | %s | 0 | 0 | — | — |" % (c, lab))
+    L += ["", "95%%区間: 開催日を単位にしたブートストラップ %d 回（乱数の種 %d、パーセンタイル法）。差は同じ再標本化の中で計算。" % (NB, SEED),
+          "差の閾値は事前に決めていない（ユーザー・レビュアーが実測値を見て判断する）。第2群は下見で、確かめるのはフォワードテスト。", ""]
+    open(outp, "w", encoding="utf-8").write("\n".join(L))
+
+
+if __name__ == "__main__":
+    a = [x for x in sys.argv[1:] if x != "--dump"]
+    if "--dump" in sys.argv:
+        main(a[0], a[1], None, a[2], dump=True)
+    else:
+        main(*a[:4])
+</script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+"use strict";
+const SHA = {"bg_fit": "4916fb441f7317361339a5c488bb1db31e3c5f7cad31eebe33f4f9ad560da7cb", "odds_from_js": "0763b6c11adac0ccccc2da65d58e13a9b47312b5c83d49344e8b3a7b1f2cbccf", "class_roi": "4cc52946dc4e71fa80b6289afe2e4f101d86d649c5ecbea0bbf2ab0b851c5777"};
+const RC_SHA = "27c889ffafd6ee0e12aecea839257b0da3e9d593666c8766b1e4374efabbfa61";
+const OJ_SHA = "d9a2d8d041e065b0841e51beb54b3f805e606eaebbfd84a9b173f006864d43a7";
+let py = null, rcBuf = null, mdText = "", roText = "";
+const $ = id => document.getElementById(id);
+const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
+const txt = el => el ? norm(el.textContent) : "";
+const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hex = async buf => [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
+const enc = new TextEncoder();
+function refresh(){ $("bRun").disabled = !(py && rcBuf && $("fJs").files.length && $("fRes").files.length); }
+
+async function boot(){
+  try{
+    let bad = [];
+    for (const [n, h] of Object.entries(SHA)) if (await hex(enc.encode($("py-" + n).textContent)) !== h) bad.push(n);
+    if (bad.length){ $("boot").innerHTML = '<span class="bad">埋め込んだコードが固定したものと違います: ' + escH(bad.join(", ")) + '</span>'; return; }
+    py = await loadPyodide();
+    $("boot").textContent = "部品（numpy・pandas・scipy）を読み込んでいます…";
+    await py.loadPackage(["numpy", "pandas", "scipy"]);
+    py.FS.mkdirTree("/w/js");
+    for (const n of Object.keys(SHA)) py.FS.writeFile("/w/" + n + ".py", $("py-" + n).textContent);
+    py.runPython("import sys; sys.path.insert(0, '/w')");
+    $("boot").innerHTML = '<span class="ok">準備ができました（埋め込んだコード3本の SHA-256 は固定したものと同じ）。</span>';
+    refresh();
+  }catch(e){ $("boot").innerHTML = '<span class="bad">準備に失敗しました:</span> ' + escH(e); }
+}
+boot();
+
+$("fRc").addEventListener("change", async e => {
+  rcBuf = null; const f = e.target.files[0]; if (!f) return refresh();
+  const b = new Uint8Array(await f.arrayBuffer()), h = await hex(b);
+  if (h !== RC_SHA){ $("cRc").innerHTML = '<span class="bad">SHA-256 が違います（' + h.slice(0, 8) + '…）。②③と同じ rank_compare_1.csv を選んでください。</span>'; return refresh(); }
+  rcBuf = b; $("cRc").innerHTML = '<span class="ok">確かめました（27c889ff…）</span>'; refresh();
+});
+$("fJs").addEventListener("change", () => { $("cJs").textContent = $("fJs").files.length + "件"; refresh(); });
+$("fRes").addEventListener("change", () => { $("cRes").textContent = $("fRes").files.length + "件"; refresh(); });
+
+async function readHtml(file){
+  const buf = await file.arrayBuffer(); let s;
+  try { s = new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch (e) { s = new TextDecoder("shift_jis").decode(buf); }
+  return new DOMParser().parseFromString(s, "text/html");
+}
+// extract_result_only_v50.html の parseResult の払戻（単勝・複勝）の部分と同じ
+function parsePay(doc){
+  const o = { tan: "", fuku: "" };
+  const pt = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /組番/.test(txt(x.querySelector("tr"))) && /単勝/.test(txt(x)) && x.querySelectorAll("tr").length > 6);
+  if (pt) {
+    let kind = ""; const acc = { "単勝": [], "複勝": [] };
+    for (const tr of pt.querySelectorAll("tr")) {
+      const cells = [...tr.children];
+      if (cells.length && cells[0].tagName === "TH") { kind = txt(cells[0]); cells.shift(); }
+      const v = cells.map(txt);
+      if ((kind === "単勝" || kind === "複勝") && v.length >= 2 && v[0] !== "-") acc[kind].push(v[0] + ":" + v[1].replace(/[,円]/g, ""));
+    }
+    o.tan = acc["単勝"].join("|"); o.fuku = acc["複勝"].join("|");
+  }
+  return o;
+}
+const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+
+function mdToHtml(md){
+  const L = md.split("\n"); let h = "", i = 0;
+  const inl = s => escH(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  while (i < L.length){
+    const l = L[i];
+    if (l.startsWith("|")){
+      const rows = []; while (i < L.length && L[i].startsWith("|")) rows.push(L[i++]);
+      const cell = r => r.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      h += "<table><thead><tr>" + cell(rows[0]).map(c => "<th>" + inl(c) + "</th>").join("") + "</tr></thead><tbody>" +
+           rows.slice(2).map(r => "<tr>" + cell(r).map(c => "<td>" + inl(c) + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+      continue;
+    }
+    if (l.startsWith("### ")) h += "<h3>" + inl(l.slice(4)) + "</h3>";
+    else if (l.startsWith("## ")) h += "<h2>" + inl(l.slice(3)) + "</h2>";
+    else if (l.startsWith("# ")) h += "<h2>" + inl(l.slice(2)) + "</h2>";
+    else if (l.trim()) h += '<p class="note">' + inl(l) + "</p>";
+    i++;
+  }
+  return h;
+}
+
+$("bRun").onclick = async () => {
+  $("bRun").disabled = true; const st = m => { $("status").textContent = m; };
+  const chk = [];
+  try{
+    st("oddsJS を書き込んでいます…");
+    for (const f of $("fJs").files){ if (!/^\d{16}/.test(f.name)) continue; py.FS.writeFile("/w/js/" + f.name.replace(/[^\w.\-]/g, "_"), new Uint8Array(await f.arrayBuffer())); }
+    py.FS.writeFile("/w/rank_compare_1.csv", rcBuf);
+    st("結果のページの払戻を読んでいます…");
+    const rows = [["race_id", "tansho", "fukusho"]], probs = []; let n = 0;
+    for (const f of [...$("fRes").files].sort((a, b) => a.name.localeCompare(b.name))){
+      const m = f.name.match(/^(\d{16})/); if (!m) { probs.push(f.name + ": レースIDで始まらない"); continue; }
+      const doc = await readHtml(f);
+      if (!/成績/.test(doc.title)) { probs.push(f.name + ": 結果のページではない（題名: " + doc.title + "）"); continue; }
+      const p = parsePay(doc); rows.push([m[1], p.tan, p.fuku]); n++;
+      if (!p.tan) probs.push(m[1] + ": 単勝の払戻が読めない");
+    }
+    roText = "﻿" + rows.map(r => r.map(escC).join(",")).join("\r\n") + "\r\n";
+    py.FS.writeFile("/w/result_only.csv", enc.encode(roText));
+    chk.push("結果のページ: " + n + " 件を読んだ" + (probs.length ? "（問題 " + probs.length + " 件: " + probs.slice(0, 5).join("；") + (probs.length > 5 ? " …" : "") + "）" : "（問題なし）"));
+    st("odds_from_js.csv を作っています…");
+    py.runPython("import os; os.chdir('/w'); import odds_from_js as OJ; OJ.main('/w/js', 'rank_compare_1.csv', 'odds_from_js.csv')");
+    const oh = await hex(py.FS.readFile("/w/odds_from_js.csv"));
+    chk.push("odds_from_js.csv の SHA-256 " + oh.slice(0, 8) + "… " + (oh === OJ_SHA ? '<span class="ok">②③で使ったものと同じ</span>' : '<span class="bad">②③で使ったもの（d9a2d8d0…）と違う。oddsJS が 256 件そろっているか確かめてください</span>'));
+    chk.push("result_only.csv の SHA-256 " + (await hex(enc.encode(roText))));
+    $("checks").innerHTML = chk.map(c => '<p class="note">' + c + "</p>").join("");
+    st("計算しています（1〜2分）…"); await new Promise(r => setTimeout(r, 50));
+    py.runPython("import class_roi as CR; CR.main('rank_compare_1.csv', 'odds_from_js.csv', 'result_only.csv', '探索_分類別の買い方の回収_結果.md')");
+    mdText = new TextDecoder().decode(py.FS.readFile("/w/探索_分類別の買い方の回収_結果.md"));
+    $("out").innerHTML = mdToHtml(mdText); $("outSec").hidden = false; st("終わりました。");
+  }catch(e){ $("checks").innerHTML = chk.map(c => '<p class="note">' + c + "</p>").join("") + '<pre class="bad">' + escH(e) + "</pre>"; st("止まりました。"); }
+};
+const save = (text, name, type) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); };
+$("bMd").onclick = () => save(mdText, "探索_分類別の買い方の回収_結果.md", "text/markdown");
+$("bRo").onclick = () => save(roText, "result_only.csv", "text/csv");
+</script>
+</body>
+</html>
