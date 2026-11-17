@@ -112,14 +112,22 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <div id="recAll"></div>
 </section>
 
+<section id="ghSec">
+<h2>GitHub から読む（表示4）</h2>
+<div id="ghBody" class="note">準備しています…</div>
+<div class="row" id="ghTokRow" style="display:none"><input type="password" id="ghTok" placeholder="読み取り専用のトークン" autocomplete="off" style="flex:1;min-width:12em;font:inherit;padding:6px 8px"><button id="ghSave">覚えさせる</button></div>
+<p class="note">「締切前」のショートカットが keiba-data（非公開）に送った出走表と oddsJS、固定した係数のファイルを読んで、下の 1〜3 と同じ計算をします。読むだけで、何も書き込みません。記録（manifest.csv・view の CSV）は GitHub の自動処理が作ります。
+トークンは keiba-data の Contents の読み取りだけを許したもの。この端末のこのブラウザだけが覚えます（ページには入りません）。<a href="#" id="ghForget">トークンを忘れさせる</a></p>
+</section>
+
 <div id="out"></div>
 
 <section>
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。</p>
-<p class="note">ページの版: v5.0-own-3・表示3 (2026-11-16)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。表示4: GitHub（keiba-data）から、ショートカットが保存した出走表・oddsJS と係数のファイルを読む欄を足した（URL の ?rid=＜レースID＞&t=＜取得日時＞ でそのレースを開く。?d=＜日付＞ でその日の一覧）。この読み方のときは記録の補助の欄を出さない。計算の中身は変えていない。</p>
+<p class="note">ページの版: v5.0-own-3・表示4 (2026-11-17)</p>
 </section>
 </main>
 
@@ -2539,7 +2547,7 @@ def forecast_json(path, rid, ST, odds_path=None):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-3・表示3 (2026-11-16)";
+const VERSION = "v5.0-own-3・表示4 (2026-11-17)";
 let py = null, runFn = null, runFnHP = null, parOK = false; const CSV = [];
 const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
@@ -2570,9 +2578,11 @@ async function boot(){
 boot();
 
 $("fPar").addEventListener("change", async e => {
-  parOK = false; refresh();
   const f = e.target.files[0]; if (!f) return;
-  const buf = new Uint8Array(await f.arrayBuffer());
+  await loadParams(new Uint8Array(await f.arrayBuffer()));
+});
+async function loadParams(buf){
+  parOK = false; refresh();
   const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
   if (h !== PSHA){ $("parSt").innerHTML = '<span class="bad">SHA-256 が一致しません（' + h.slice(0, 8) + '…）。固定した係数のファイルではないので使いません。</span>'; return; }
   while (!py) await new Promise(r => setTimeout(r, 300));
@@ -2597,7 +2607,7 @@ $("fPar").addEventListener("change", async e => {
     "        E.BeautifulSoup = _BS0; bs4.BeautifulSoup = _BS0",
     "_forecast_hp"].join("\n"));
   parOK = true; $("parSt").innerHTML = '<span class="ok">係数のファイルを確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>'; refresh();
-});
+}
 
 // 網掛け: 馬名より右の数字の列ごとに、いちばん良い馬を赤、いちばん悪い馬を青、間は列の中の順位に応じたグラデーション。
 // 「予想順」「順位」は小さいほど良い。ほかは大きいほど良い。数字でない列（脚質など）は塗らない。
@@ -2634,11 +2644,12 @@ const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.po
 const pct = p => (p * 100 >= 10 ? (p * 100).toFixed(0) : (p * 100).toFixed(1)) + "%";
 const odd = o => (o >= 100 ? o.toFixed(0) : o.toFixed(1)) + "倍";
 
-$("bRun").onclick = async () => {
+$("bRun").onclick = () => { GHMODE = false; return runWith([...$("fRace").files], [...$("fOdds").files]); };
+async function runWith(raceFiles, oddsFiles){
   $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; $("recAll").innerHTML = ""; CSV.length = 0; MROWS.length = 0;
   const OD = new Map();
-  for (const f of $("fOdds").files){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
-  const files = [...$("fRace").files].map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  for (const f of oddsFiles){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
+  const files = raceFiles.map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   let i = 0;
   for (const [f, rid] of files){
     i++; $("status").textContent = i + " / " + files.length + " レース目を計算しています…"; await yieldNow();
@@ -2676,7 +2687,7 @@ $("bRun").onclick = async () => {
              B.items_ja.map((x, i) => escH(x) + Object.values(B.points)[i]).join("・") + '）×能力差倍率' + B.scale + 'を掛けたもの。能力計はその合計、v4.7勝率 = softmax(能力計)（逃げ補正なし）。' +
              '能試時計は、日付と距離がいちばん多い組と同じ馬だけを比べる（ほかは0）。取れない値は0（中立）。見出しを押すと、その列で並べ替えます。</p>';
         if (B.warnings && B.warnings.length) h += '<pre>読み取りの警告: ' + escH(B.warnings.join("；")) + '</pre>';
-        sec.innerHTML = h; shade(sec); await recordBox(sec, rid, f, ofs, CSV.slice(c0), o); continue;
+        sec.innerHTML = h; shade(sec); if (!GHMODE) await recordBox(sec, rid, f, ofs, CSV.slice(c0), o); continue;
       }
       if (st !== "normal"){
         const why = {debut:"全頭が初出走のレースは対象外です", mixed:"初出走馬と経験馬が混在するレースは対象外です", stop:"停止", error:"エラー"}[st] || st;
@@ -2735,12 +2746,12 @@ $("bRun").onclick = async () => {
            'v4.7勝率 = softmax(能力計 ＋ 逃げ補正)。逃げ補正は脚質が逃げの馬だけ ＋' + inf.nige_boost + '。v4.7 はこの方式で検証し、回収率100%には届かなかった。' +
            '「騎手」は騎手コース相性を含むため、レースの後にさかのぼって取り直した出走表では当日の結果が混ざる（レース前に保存した出走表なら問題ない）。見出しを押すと、その列で並べ替えます。</p>';
       if (msg) h += '<pre>読み取りの警告: ' + escH(msg) + '</pre>';
-      sec.innerHTML = h; shade(sec); await recordBox(sec, rid, f, ofs, CSV.slice(c0), o);
+      sec.innerHTML = h; shade(sec); if (!GHMODE) await recordBox(sec, rid, f, ofs, CSV.slice(c0), o);
     }catch(e){ sec.innerHTML = '<p class="bad">' + escH(rid) + ': 例外 ' + escH(e) + '</p>'; }
   }
   $("status").textContent = "終わりました（" + files.length + " レース）。"; $("bRun").disabled = false; $("bCsv").disabled = !CSV.length;
   if (MROWS.length) recAllBox();
-};
+}
 const CSVHEAD = ["race_id", "market_rank", "num", "name", "odds_tan", "m", "ability_rank", "m1_score"].concat(["c1","c2","c3","c4","c5","c6"].map(c => c + "_z"), ["c1","c2","c3","c4","c5","c6"].map(c => c + "_contrib"),
     ["scratch", "P1", "n_eff", "agree", "odds_status", "odds_update", "n_scratch", "page_ver", "params_sha"]);
 const csvText = rows => "\ufeff" + [CSVHEAD.join(",")].concat(rows.map(r => r.map(escC).join(","))).join("\r\n") + "\r\n";
@@ -2848,6 +2859,66 @@ function marketHtml(o, rid, ofs, oname){
   });
   return h;
 }
+// 表示4: GitHub（keiba-data・非公開）から読む。読むだけ。トークンはこのブラウザの localStorage だけに置く。
+const GH = { api: "https://api.github.com/repos/gomatoday/keiba-data/contents/", key: "fwd_ro_token", par: "fwd/code/v5.0-own-3/v50_params.json" };
+let GHMODE = false, GHPAR = false;
+const tokGet = () => { try { return localStorage.getItem(GH.key) || ""; } catch (e) { return ""; } };
+const tokSet = v => { try { if (v) localStorage.setItem(GH.key, v); else localStorage.removeItem(GH.key); return true; } catch (e) { return false; } };
+async function ghGet(path, raw){
+  const r = await fetch(GH.api + path.split("/").map(encodeURIComponent).join("/"),
+    { headers: { Authorization: "Bearer " + tokGet(), Accept: raw ? "application/vnd.github.raw" : "application/vnd.github+json" }, cache: "no-store" });
+  if (!r.ok){ const e = new Error(path + " を読めません（HTTP " + r.status + "）"); e.status = r.status; throw e; }
+  return raw ? new Uint8Array(await r.arrayBuffer()) : r.json();
+}
+const jstDay = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }).replace(/-/g, "");
+const tsShow = s => s.slice(8, 10) + ":" + s.slice(10, 12) + ":" + s.slice(12, 14);
+function ghMsg(h){ $("ghBody").innerHTML = h; }
+async function ghStart(){
+  const q = new URLSearchParams(location.search);
+  const rid = (q.get("rid") || "").match(/^\d{16}$/) ? q.get("rid") : "", t = (q.get("t") || "").match(/^\d{14}$/) ? q.get("t") : "";
+  const day = rid ? rid.slice(0, 8) : ((q.get("d") || "").match(/^\d{8}$/) ? q.get("d") : jstDay());
+  if (!tokGet()){ $("ghTokRow").style.display = ""; ghMsg("読み取り専用のトークンを貼って「覚えさせる」を押してください（最初の1回だけ）。"); return; }
+  $("ghTokRow").style.display = "none";
+  ghMsg(day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + " のファイルを調べています…");
+  let list;
+  try { list = await ghGet("fwd/" + day + "/pre", false); }
+  catch (e){
+    if (e.status === 401){ ghMsg('<span class="bad">トークンが使えません（期限切れ・打ち間違いなど）。</span>'); tokSet(""); $("ghTokRow").style.display = ""; return; }
+    ghMsg(e.status === 404 ? "この日（" + day + "）のファイルはまだありません。" : '<span class="bad">' + escH(e.message) + '</span>'); return;
+  }
+  const F = (Array.isArray(list) ? list : []).map(x => (x.name || "").match(/^(card|oddspre)_(\d{16})_(\d{14})\.txt$/)).filter(m => m)
+    .map(m => ({ kind: m[1], rid: m[2], ts: m[3], name: m[0], path: "fwd/" + day + "/pre/" + m[0] }));
+  const OD = F.filter(x => x.kind === "oddspre").sort((a, b) => (a.rid + a.ts).localeCompare(b.rid + b.ts));
+  if (!OD.length){ ghMsg("この日（" + day + "）の締切前の oddsJS（oddspre_）はまだありません。"); return; }
+  let h = '<div>' + day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + ' の締切前のファイル（押すとそのレースを計算します）:</div><div class="row">';
+  OD.forEach((x, i) => { h += '<button class="ghR" data-i="' + i + '" style="padding:4px 10px">' + Number(x.rid.slice(-2)) + 'R ' + tsShow(x.ts) + '</button>'; });
+  ghMsg(h + '</div><div id="ghSt" class="note"></div>');
+  document.querySelectorAll(".ghR").forEach(b => b.onclick = () => ghRun(OD[+b.dataset.i], F));
+  if (rid){
+    const mine = OD.filter(x => x.rid === rid), pick = mine.find(x => x.ts === t) || mine[mine.length - 1];
+    if (pick) await ghRun(pick, F); else $("ghSt").innerHTML = '<span class="bad">' + rid + ' の締切前のファイルが見つかりません。</span>';
+  }
+}
+async function ghRun(od, F){
+  const st = m => { $("ghSt").innerHTML = m; };
+  try {
+    const cs = F.filter(x => x.kind === "card" && x.rid === od.rid && x.ts <= od.ts).sort((a, b) => a.ts.localeCompare(b.ts));
+    const card = cs.find(x => x.ts === od.ts) || cs[cs.length - 1];
+    if (!card){ st('<span class="bad">同じ時刻かそれより前の出走表（card_）がありません。</span>'); return; }
+    st("計算の準備を待っています…");
+    while (!py) await new Promise(r => setTimeout(r, 300));
+    if (!GHPAR){ st("係数のファイルを読んでいます…"); await loadParams(await ghGet(GH.par, true)); if (!parOK){ st('<span class="bad">係数のファイルを確かめられませんでした（上の 1. を見てください）。</span>'); return; } GHPAR = true; }
+    st("出走表と oddsJS を読んでいます…");
+    const cb = await ghGet(card.path, true), ob = await ghGet(od.path, true);
+    GHMODE = true; st(Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + " 取得）を計算しています…");
+    await runWith([new File([cb], card.name)], [new File([ob], od.name)]);
+    st('<span class="ok">' + Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + ' 取得）を出しました。</span>使ったファイル: ' + escH(card.name) + "・" + escH(od.name));
+    $("out").scrollIntoView({ behavior: "smooth" });
+  } catch (e){ st('<span class="bad">' + escH(e.message || e) + '</span>'); }
+}
+$("ghSave").onclick = () => { const v = $("ghTok").value.trim(); if (!v) return; if (!tokSet(v)){ ghMsg('<span class="bad">このブラウザでは覚えさせられません（プライベートブラウズでは使えないことがあります）。</span>'); return; } $("ghTok").value = ""; ghStart(); };
+$("ghForget").onclick = e => { e.preventDefault(); tokSet(""); $("ghTokRow").style.display = ""; ghMsg("トークンを忘れさせました。"); };
+ghStart();
 </script>
 </body>
 </html>
