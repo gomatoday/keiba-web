@@ -73,6 +73,27 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 </section>
 
 <section>
+<h2>このページの見方</h2>
+<p class="note" style="margin-top:0">「当てるための道具」ではなく、レースの前に「このレースは市場の見立てをどれくらい信じてよいか」を見るためのページです。上から次の順に見ます。</p>
+<ol class="steps">
+<li><b>P1 と有効頭数で、レースの堅さを見る。</b>P1 が高い・有効頭数が少ないほど「市場の本命が素直に来やすいレース」、逆なら「混戦で何が来てもおかしくないレース」。各レースの欄に、5段階の位置（下の表）を出します。</li>
+<li><b>市場の表で、各馬の見立てを見る。</b>市場の確率（オッズを割り直したもの。補正しない）が、いちばん信頼できる見立て。</li>
+<li><b>M1（能力）は、市場とは別の目線として見る。</b>市場と合わせた順位は作っていない。「一致・不一致」は参考で、信頼度の目安ではない（不一致のレースでも、市場1位の勝率 43% は能力1位の 14% より高かった）。不一致のときは「市場はどこを見ているか」を考えるきっかけにする。</li>
+<li><b>予想人気（想定オッズ）・v4.7 の能力計は背景として見る。</b>想定オッズは実際のオッズと平均およそ1.9倍ずれる。v4.7 は検証で回収率100%に届かなかった。</li>
+</ol>
+<p class="note"><b>やらないこと:</b> M1 1位や不一致の馬を、それだけで狙うこと（市場に勝つ根拠は見つかっていない）。想定オッズと実際のオッズのずれを、割安のしるしとして使うこと。</p>
+<h3>5段階の位置の目安（第2群 238 レース〔9/14〜10/13〕のオッズの分布の5等分。着順は使っていない）</h3>
+<div class="scroll"><table class="hm" style="font-size:.8rem"><thead><tr><th>位置</th><th>P1</th><th>有効頭数 ÷ 出走頭数</th><th>レースの感じ</th></tr></thead><tbody>
+<tr><td>低い／少ない</td><td>28.2% 未満</td><td>38.7% 未満</td><td class="l">P1 低い＝混戦／有効頭数が少ない＝堅い</td></tr>
+<tr><td>やや低い／やや少ない</td><td>28.2〜35.8%</td><td>38.7〜47.0%</td><td class="l"></td></tr>
+<tr><td>中間</td><td>35.8〜43.3%</td><td>47.0〜54.7%</td><td class="l">ふつう</td></tr>
+<tr><td>やや高い／やや多い</td><td>43.3〜55.7%</td><td>54.7〜61.1%</td><td class="l"></td></tr>
+<tr><td>高い／多い</td><td>55.7% 以上</td><td>61.1% 以上</td><td class="l">P1 高い＝堅い／有効頭数が多い＝混戦</td></tr>
+</tbody></table></div>
+<p class="note">各段階に約2割ずつのレースが入るように区切った。有効頭数は出走頭数で割って比べる（10頭立ての5頭と16頭立ての5頭は意味が違うため）。P1 と有効頭数の割合はほぼ逆に動く（相関 −0.82）。確定オッズの分布なので、締切前のオッズでは少しずれるかもしれない。</p>
+</section>
+
+<section>
 <h2>市場の見通しと能力（M1）の作り方（v5.0-own-3）</h2>
 <ol class="steps">
 <li>市場の確率 m = (1 ÷ 単勝オッズ) を、出走馬の中で合計100%に割り直したもの（補正しない）。oddsJS で有効でない馬は取消・除外として除く。</li>
@@ -126,8 +147,8 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。表示4: GitHub（keiba-data）から、ショートカットが保存した出走表・oddsJS と係数のファイルを読む欄を足した（URL の ?rid=＜レースID＞&t=＜取得日時＞ でそのレースを開く。?d=＜日付＞ でその日の一覧）。この読み方のときは記録の補助の欄を出さない。計算の中身は変えていない。</p>
-<p class="note">ページの版: v5.0-own-3・表示4 (2026-11-17)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。表示4: GitHub（keiba-data）から、ショートカットが保存した出走表・oddsJS と係数のファイルを読む欄を足した（URL の ?rid=＜レースID＞&t=＜取得日時＞ でそのレースを開く。?d=＜日付＞ でその日の一覧）。この読み方のときは記録の補助の欄を出さない。計算の中身は変えていない。表示5: 上部に「このページの見方」を足し、各レースの P1 と有効頭数（出走頭数で割った割合）に5段階の位置（第2群 238 レースのオッズの分布の5等分。着順は使っていない）と「堅いレース寄り・ふつう・混戦寄り」を付けた。計算の中身は変えていない。</p>
+<p class="note">ページの版: v5.0-own-3・表示5 (2026-11-17)</p>
 </section>
 </main>
 
@@ -2547,7 +2568,7 @@ def forecast_json(path, rid, ST, odds_path=None):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-3・表示4 (2026-11-17)";
+const VERSION = "v5.0-own-3・表示5 (2026-11-17)";
 let py = null, runFn = null, runFnHP = null, parOK = false; const CSV = [];
 const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
@@ -2611,6 +2632,7 @@ async function loadParams(buf){
 
 // 網掛け: 馬名より右の数字の列ごとに、いちばん良い馬を赤、いちばん悪い馬を青、間は列の中の順位に応じたグラデーション。
 // 「予想順」「順位」は小さいほど良い。ほかは大きいほど良い。数字でない列（脚質など）は塗らない。
+const P1CUT = [0.282, 0.358, 0.433, 0.557], NECUT = [0.387, 0.470, 0.547, 0.611];   // 表示5: 第2群 238 レースの5等分の区切り
 const LOWER_BETTER = ["予想順", "順位", "市場順位", "M1順位", "単勝オッズ"];
 function shade(root){
   root.querySelectorAll("table.hm").forEach(tb => {
@@ -2825,7 +2847,13 @@ function marketHtml(o, rid, ofs, oname){
     if (O.error) h += '<p class="bad">市場の情報を出せません: ' + escH(O.error) + '</p>';
     else {
       const ag = O.agree == null ? '—（新馬のため能力を出さない）' : (O.agree ? '一致' : '不一致');
-      h += '<div class="calc" style="font-size:.95rem"><b>P1（市場1位の確率）: ' + pct(O.P1) + '</b>　<b>有効頭数: ' + O.neff.toFixed(1) + '頭</b><br>市場1位と能力1位: <b>' + ag + '</b>' +
+      const nRun = O.m.filter(x => x != null).length, ratio = O.neff / nRun;
+      const lv = (v, cuts, labs) => labs[cuts.filter(c => v >= c).length];
+      const p1L = lv(O.P1, P1CUT, ["低い", "やや低い", "中間", "やや高い", "高い"]), neL = lv(ratio, NECUT, ["少ない", "やや少ない", "中間", "やや多い", "多い"]);
+      const sc5 = (lv(O.P1, P1CUT, [0, 1, 2, 3, 4]) + (4 - lv(ratio, NECUT, [0, 1, 2, 3, 4]))) / 2;
+      const feel = sc5 >= 3 ? "堅いレース寄り" : sc5 <= 1 ? "混戦寄り" : "ふつう";
+      h += '<div class="calc" style="font-size:.95rem"><b>P1（市場1位の確率）: ' + pct(O.P1) + '（' + p1L + '）</b>　<b>有効頭数: ' + O.neff.toFixed(1) + '頭（出走' + nRun + '頭の' + (ratio * 100).toFixed(0) + '%・' + neL + '）</b>' +
+           '<br>→ <b>' + feel + '</b>（5段階の位置は上の「このページの見方」の表。第2群 238 レースの分布）<br>市場1位と能力1位: <b>' + ag + '</b>' +
            (O.agree == null ? '' : '（市場1位 ' + O.top_market + '番・能力1位 ' + O.top_ability + '番）') + '</div>' +
            '<p class="note">第2群の 238 レース（確定オッズで代用）では、P1 が高いほど・有効頭数が少ないほど、市場1位がよく勝った。一致・不一致は参考情報で、信頼度の目安ではない（不一致でも市場1位の方がよく勝った）。</p>';
       const run = nums.map((n, k) => k).filter(k => O.m[k] != null).sort((a, b) => O.rank[a] - O.rank[b]);
