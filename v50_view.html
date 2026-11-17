@@ -156,8 +156,8 @@ pre{white-space:pre-wrap;font-size:.8rem;background:color-mix(in srgb,var(--mute
 <h2>このページについて</h2>
 <p class="note">計算は forecast_v50.py（SHA-256 a83e72f0…）1本で行う。係数は v50_params.json（SHA-256 83edac79…。ページには入れず、開くたびに選ぶ）。その中の market は stage1_params_55.json（SHA-256 90b07936…）の中身そのもの、ability は v4.7 の配点と逃げ補正。
 人気の確率 p = softmax(τ0·s)、τ0 = 0.4680、想定オッズ = 0.7856 ÷ p。能力計は v4.7 のコードで計算した7項目の合計。出走表の読み取りは extract3_v50.html と同じ v4.9 のコード（変えていない）、列の作り方は design57.py（SHA-256 954816dc…）。人気の集まりやすさの表にない名前は 0.5 とする。</p>
-<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。表示4: GitHub（keiba-data）から、ショートカットが保存した出走表・oddsJS と係数のファイルを読む欄を足した（URL の ?rid=＜レースID＞&t=＜取得日時＞ でそのレースを開く。?d=＜日付＞ でその日の一覧）。この読み方のときは記録の補助の欄を出さない。計算の中身は変えていない。表示5: 上部に「このページの見方」を足し、各レースの P1 と有効頭数（出走頭数で割った割合）に5段階の位置（第2群 238 レースのオッズの分布の5等分。着順は使っていない）と「堅いレース寄り・ふつう・混戦寄り」を付けた。計算の中身は変えていない。表示6: 3つの分類の代わりに、P1 と有効頭数をまとめた物差し（0〜8）の5つの帯（A〜E。記録28）を出し、第2群での市場1位の勝率・3着内率を添えた。計算の中身は変えていない。</p>
-<p class="note">ページの版: v5.0-own-3・表示6 (2026-11-17)</p>
+<p class="note">v5.0-own-3 で足したもの: oddsJS からの市場の順位・確率、P1、有効頭数、市場1位と能力1位の一致、能力（M1）。M1 の係数は v50_params.json の ability_m1（ability_coef_v1.json の M1 そのもの。SHA-256 e6bf1a0a…）。今までの表（予想人気・分析の過程・v4.7 の能力計）の計算は v5.0-own-2 と同じ。表示2: 出走表を lxml で読めずに止まったレースは、Python 標準の html.parser で読み直して同じ計算をする（集計のページと同じ仕組み）。表示3: フォワードテストの記録の補助（読み込んだファイルと書き出す CSV の SHA-256、記録表に貼る行、メールの下書き。CSV にページの版と係数の SHA-256 の列を足した）。計算の中身は変えていない。表示4: GitHub（keiba-data）から、ショートカットが保存した出走表・oddsJS と係数のファイルを読む欄を足した（URL の ?rid=＜レースID＞&t=＜取得日時＞ でそのレースを開く。?d=＜日付＞ でその日の一覧）。この読み方のときは記録の補助の欄を出さない。計算の中身は変えていない。表示5: 上部に「このページの見方」を足し、各レースの P1 と有効頭数（出走頭数で割った割合）に5段階の位置（第2群 238 レースのオッズの分布の5等分。着順は使っていない）と「堅いレース寄り・ふつう・混戦寄り」を付けた。計算の中身は変えていない。表示6: 能力（M1）の中身の表を M1 順位の順に並べる（2026-11-17 16:45）。3つの分類の代わりに、P1 と有効頭数をまとめた物差し（0〜8）の5つの帯（A〜E。記録28）を出し、第2群での市場1位の勝率・3着内率を添えた。計算の中身は変えていない。</p>
+<p class="note">ページの版: v5.0-own-3・表示6b (2026-11-17)</p>
 </section>
 </main>
 
@@ -2577,7 +2577,7 @@ def forecast_json(path, rid, ST, odds_path=None):
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 "use strict";
-const VERSION = "v5.0-own-3・表示6 (2026-11-17)";
+const VERSION = "v5.0-own-3・表示6b (2026-11-17)";
 let py = null, runFn = null, runFnHP = null, parOK = false; const CSV = [];
 const PSHA = "83edac7907c493a042623326c8f7b7595c7426a324a6f468b4e2942d7338120e";
 const $ = id => document.getElementById(id);
@@ -2880,8 +2880,8 @@ function marketHtml(o, rid, ofs, oname){
     }
   }
   if (M && M.score){
-    h += '<h2 class="part">能力（M1）の中身<span class="rid">馬番順</span></h2><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th>' + M1LAB.map(x => '<th>' + x + '</th>').join("") + '<th>M1スコア</th><th>M1順位</th></tr></thead><tbody>';
-    nums.map((n, k) => k).filter(k => M.score[k] != null).sort((a, b) => nums[a] - nums[b]).forEach(k => {
+    h += '<h2 class="part">能力（M1）の中身<span class="rid">M1順位順</span></h2><div class="scroll"><table class="hm"><thead><tr><th>馬番</th><th>馬名</th>' + M1LAB.map(x => '<th>' + x + '</th>').join("") + '<th>M1スコア</th><th>M1順位</th></tr></thead><tbody>';
+    nums.map((n, k) => k).filter(k => M.score[k] != null).sort((a, b) => M.rank[a] - M.rank[b]).forEach(k => {
       h += '<tr><td>' + nums[k] + '</td><td class="l">' + escH((byN[nums[k]] || {}).name || "") + '</td>' +
            M.contrib[k].map((v, j) => '<td title="そろえた値 ' + sgn(M.z[k][j]) + ' × 係数 ' + M.coef[j].toFixed(3) + '">' + sgn(v) + '</td>').join("") + '<td>' + sgn(M.score[k]) + '</td><td>' + M.rank[k] + '</td></tr>';
     });
