@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v5.0 学習用テーブルの作成</title>
+<style>
+  :root { --fg:#1d1d1f; --mute:#6b6b70; --line:#d9d9de; --bg:#fafafa; --acc:#1f5fbf; --bad:#b3261e; --ok:#1e7a3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; }
+  main { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:1.35rem; margin:0 0 4px; }
+  .sub { color:var(--mute); margin:0 0 24px; font-size:.92rem; }
+  section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:16px; }
+  h2 { font-size:1rem; margin:0 0 10px; }
+  label.pick { display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap:wrap; }
+  label.pick span.t { width:7em; font-weight:600; }
+  .cnt { color:var(--mute); font-size:.9rem; }
+  button { font:inherit; padding:8px 16px; border-radius:8px; border:1px solid var(--acc); background:var(--acc); color:#fff; cursor:pointer; }
+  button.sec { background:#fff; color:var(--acc); }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  progress { width:100%; height:10px; margin-top:12px; }
+  pre { white-space:pre-wrap; font-size:.82rem; background:#f4f4f6; border-radius:8px; padding:10px 12px; max-height:420px; overflow:auto; margin:10px 0 0; }
+  .note { font-size:.88rem; color:var(--mute); margin:6px 0 0; }
+  .ok { color:var(--ok); font-weight:600; } .bad { color:var(--bad); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>v5.0 学習用テーブルの作成（第1群）</h1>
+  <p class="sub">保存した出走表・結果の .txt（中身はHTML）から、horses.csv・past_runs.csv・report.txt の3つを作ります。ファイルはこの端末の中だけで読み、どこにも送信しません。</p>
+
+  <section>
+    <h2>1. ファイルを選ぶ</h2>
+    <label class="pick"><span class="t">出走表</span><input type="file" id="fRace" multiple accept=".txt,.html,.htm"><span class="cnt" id="cRace">0件</span></label>
+    <label class="pick"><span class="t">結果</span><input type="file" id="fRes" multiple accept=".txt,.html,.htm"><span class="cnt" id="cRes">0件</span></label>
+    <p class="note">ファイル名のどこかにレースID（16桁）があれば読みます。何回かに分けて選ぶと、選んだ分が追加されます。出走表の欄に結果のページ、結果の欄に出走表のページを選んでも、ページの題名を見て正しい側に入れ直します（報告に書きます）。</p>
+    <div class="row"><button class="sec" id="bClear">選んだファイルを空にする</button></div>
+  </section>
+
+  <section>
+    <h2>2. 作る</h2>
+    <div class="row"><button id="bRun" disabled>学習用テーブルを作る</button></div>
+    <progress id="prog" value="0" max="1" hidden></progress>
+    <div id="status" class="note"></div>
+  </section>
+
+  <section id="outSec" hidden>
+    <h2>3. 結果</h2>
+    <div id="summary"></div>
+    <div class="row">
+      <button id="bH">horses.csv を保存</button>
+      <button id="bP">past_runs.csv を保存</button>
+      <button class="sec" id="bR">report.txt を保存</button>
+    </div>
+    <pre id="report"></pre>
+  </section>
+</main>
+
+<script>
+"use strict";
+const VERSION = "learn-table-1 (2026-11-18)";
+const CARD = new Map(), RES = new Map();      // rid -> File（選んだ欄）
+const PICKLOG = [];
+let outH = "", outP = "", outR = "";
+
+const $ = id => document.getElementById(id);
+const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
+const txt = el => el ? norm(el.textContent) : "";
+const z2h = s => (s || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+const numOr = s => { const m = z2h(s || "").replace(/,/g, "").match(/^-?\d+(?:\.\d+)?$/); return m ? m[0] : ""; };
+
+/* ---------- 場の名前の表（固定） ---------- */
+const REGION = {};
+["札幌","函館","福島","新潟","東京","中山","中京","京都","阪神","小倉"].forEach(v => REGION[v] = "中央");
+["大井","川崎","船橋","浦和"].forEach(v => REGION[v] = "南関東");
+["門別","帯広","盛岡","水沢","金沢","笠松","名古屋","園田","姫路","高知","佐賀"].forEach(v => REGION[v] = "他地区");
+
+function addFiles(list, map, label) {
+  for (const f of list) {
+    const m = f.name.match(/(\d{16})/);
+    if (!m) { PICKLOG.push(label + ": " + f.name + "（名前にレースIDが無いので読みません）"); continue; }
+    if (map.has(m[1])) PICKLOG.push(label + ": 同じレースID " + m[1] + " を2回選んだ（後の方を使用）");
+    map.set(m[1], f);
+  }
+}
+function refresh() {
+  $("cRace").textContent = CARD.size + "件"; $("cRes").textContent = RES.size + "件";
+  $("bRun").disabled = CARD.size + RES.size === 0;
+}
+$("fRace").addEventListener("change", e => { addFiles(e.target.files, CARD, "出走表"); e.target.value = ""; refresh(); });
+$("fRes").addEventListener("change", e => { addFiles(e.target.files, RES, "結果"); e.target.value = ""; refresh(); });
+$("bClear").onclick = () => { CARD.clear(); RES.clear(); PICKLOG.length = 0; refresh(); $("outSec").hidden = true; $("status").textContent = ""; };
+
+async function readFile(file) {
+  const buf = await file.arrayBuffer();
+  let s;
+  try { s = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+  catch (e) { s = new TextDecoder("shift_jis").decode(buf); }
+  return { html: s, doc: new DOMParser().parseFromString(s, "text/html") };
+}
+function kindOf(doc) {
+  const t = doc.title || "";
+  if (/成績/.test(t)) return "res";
+  if (/レース情報/.test(t)) return "card";
+  return "";
+}
+function idFrom(a, re) { const h = a ? a.getAttribute("href") || "" : ""; const m = h.match(re); return m ? m[1] : ""; }
+function brParts(td) { return td ? td.innerHTML.split(/<br\s*\/?>/i).map(s => norm(s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " "))) : []; }
+function ymd(y, m, d) { return y + String(m).padStart(2, "0") + String(d).padStart(2, "0"); }
+function toDate(s) { return s && /^\d{8}$/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)) : null; }
+function daysBetween(a, b) { const x = toDate(a), y = toDate(b); return x == null || y == null ? "" : String(Math.round((y - x) / 86400000)); }
+function timeSec(s) {
+  s = z2h(s || "").trim();
+  let m = s.match(/^(\d+):(\d{1,2})\.(\d)$/); if (m) return (+m[1] * 60 + +m[2] + +m[3] / 10).toFixed(1);
+  m = s.match(/^(\d{1,3})\.(\d)$/); if (m) return (+m[1] + +m[2] / 10).toFixed(1);
+  return "";
+}
+function wakuOf(num, n) {                 // 8枠制の決まり（9頭以上は後ろの枠から2頭ずつ）
+  num = +num; n = +n; if (!num || !n || num > n) return "";
+  if (n <= 8) return String(num);
+  const q = Math.floor(n / 8), r = n % 8; let c = 0;
+  for (let w = 1; w <= 8; w++) { c += (w <= 8 - r) ? q : q + 1; if (num <= c) return String(w); }
+  return "";
+}
+
+/* ---------- 見出し（出走表・結果で共通） ---------- */
+function parseHeader(doc) {
+  const o = {};
+  const sub = doc.querySelector("p.nk23_c-tab1__subtitle");
+  if (!sub) return null;
+  o.rno = txt(sub.querySelector(".nk23_c-tab1__subtitle__label")).replace("R", "");
+  const tx = [...sub.querySelectorAll(":scope > .nk23_c-tab1__subtitle__text")].map(txt);
+  const dm = (tx[0] || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  o.date = dm ? ymd(dm[1], dm[2], dm[3]) : "";
+  const km = (tx[1] || "").match(/第(\d+)回\s*(\S+?)競馬\s*第(\d+)日/);
+  o.kai = km ? km[1] : ""; o.venue = km ? km[2] : ""; o.nichi = km ? km[3] : "";
+  const bottom = sub.querySelector(".nk23_c-tab1__subtitle__bottom");
+  const course = txt(bottom && bottom.querySelector("a"));
+  const cm = course.match(/^(\D+?)\s*([\d,]+)m\s*(?:（(.*?)）)?/);
+  o.surface = cm ? cm[1] : ""; o.dist = cm ? cm[2].replace(/,/g, "") : ""; o.inout = cm && cm[3] ? cm[3] : "";
+  o.course_raw = course;
+  const bt = txt(bottom);
+  const hm = bt.match(/（(\d+)頭）/); o.heads_card = hm ? hm[1] : "";
+  const tm = bt.match(/発走時刻\s*(\d{1,2}:\d{2})/); o.post_time = tm ? tm[1] : "";
+  o.title_raw = txt(doc.querySelector("h3.nk23_c-tab1__title .nk23_c-tab1__title__text"));
+  const gr = doc.querySelector(".nk23_c-tab1__accor__grtext .nk23_c-tab1__texts__gr");
+  const g = gr ? [...gr.querySelectorAll(":scope > .nk23_c-tab1__text")].map(txt) : [];
+  for (let i = 0; i < 5; i++) o["cond" + (i + 1)] = g[i] || "";
+  o.cond_raw = g.filter(Boolean).join(" / ");
+  const pz = txt(doc.querySelector(".nk23_c-tab1__accor__grtext")).match(/1着([\d,]+)円/);
+  o.prize1 = pz ? pz[1].replace(/,/g, "") : "";
+  return o;
+}
+
+/* ---------- 出走表: 基本の表 ---------- */
+function parseBasic(doc) {
+  const t = [...doc.querySelectorAll("table.nk23_c-table23__table")].find(x => x.querySelectorAll("tr").length > 1);
+  const out = []; if (!t) return out;
+  let waku = "";
+  for (const tr of t.querySelectorAll("tr")) {
+    let tds = [...tr.children].filter(x => x.tagName === "TD");
+    if (tds.length < 10) continue;
+    if (tds[0].hasAttribute("rowspan")) { waku = txt(tds[0]); tds = tds.slice(1); }
+    const h = {};
+    h.waku = waku; h.num_raw = txt(tds[0]);
+    const na = tds[1].querySelector("a");
+    h.horse_id = idFrom(na, /uma_info\/(\d+)/); h.name = txt(na) || txt(tds[1]);
+    h.birth_raw = txt(tds[1].querySelector(".nk23_c-table23__txt3"));
+    const sx = brParts(tds[2]); h.sexage = sx[0] || ""; h.color = sx[1] || "";
+    const bw = brParts(tds[4]); h.bw = numOr(bw[0]); h.bw_diff_raw = bw[1] || "";
+    const kt = txt(tds[5]); h.kin = numOr(kt.replace(/[^\d.]/g, "")); h.gen_mark = (kt.match(/[▲△☆◇★]/) || [""])[0];
+    const ja = tds[6].querySelector("a");
+    h.jockey_id = idFrom(ja, /kis_info\/(\w+)/); h.jockey = txt(ja);
+    h.jockey_aff = (txt(tds[6]).match(/\(([^)]*)\)\s*$/) || ["", ""])[1];
+    const pm = brParts(tds[7]); h.sire = pm[0] || ""; h.dam = pm[1] || "";
+    const ta = tds[8].querySelector("a");
+    h.trainer_id = idFrom(ta, /cho_info\/(\w+)/); h.trainer = txt(ta);
+    h.trainer_aff = (txt(tds[8]).match(/\(([^)]*)\)\s*$/) || ["", ""])[1];
+    const ps = [...tds[9].querySelectorAll("p")].map(txt);
+    h.owner = ps[0] || ""; h.breeder = ps[1] || "";
+    h.row_text = txt(tr);
+    out.push(h);
+  }
+  return out;
+}
+
+/* ---------- 出走表: 過去走の欄 ---------- */
+function parseRun(td) {
+  const r = { exists: "0", abnormal: "", date: "", date_src: "", race_id: "", rno: "", venue: "", region: "", nankan4: "",
+    dist: "", surface: "", inout: "", course_raw: "", baba: "", title_raw: "", label_raw: "", heads: "", num: "", waku: "",
+    fin: "", fin_raw: "", pop: "", jockey: "", gen_mark: "", kin: "", bw: "", time: "", time_raw: "", margin: "",
+    l3f: "", l3f_rank: "", pass_raw: "", pass1: "", pass2: "", pass3: "", pass4: "", pass_n: "", pass_last: "", winner: "", raw: "" };
+  if (!td) return r;
+  const all = txt(td);
+  if (!all || all === "-" || all === "--") return r;
+  r.exists = "1"; r.raw = all.slice(0, 300);
+  if (/初出走時勝率/.test(all)) { r.abnormal = "初出走欄"; return r; }
+  const fl = td.querySelector("p.nk23_u-d-flex");
+  const sp = fl ? [...fl.children].filter(x => x.tagName === "SPAN") : [];
+  r.fin_raw = txt(sp[0]).replace(/\s*着$/, "");
+  const vd = txt(sp[1]);
+  const vm = vd.match(/^(\D+?)(\d{2})\.(\d{1,2})\.(\d{1,2})$/);
+  if (vm) { r.venue = vm[1]; }
+  const crs = txt(sp[2]);                                   // 「良外ダ 1200」「稍内芝 1600」「800」（能試）
+  r.course_raw = crs;
+  const cm = crs.match(/^(良|稍|重|不)?(内|外)?(ダ|芝|障)?\s*(\d{3,4})$/);
+  if (cm) { r.baba = cm[1] || ""; r.inout = cm[2] || ""; r.surface = cm[3] || ""; r.dist = cm[4]; }
+  if (/能試/.test(r.fin_raw)) r.abnormal = "能試";
+  else if (!/^\d+$/.test(r.fin_raw)) r.abnormal = r.fin_raw || "不明";
+  else r.fin = r.fin_raw;
+  // 日付: rcd（南関東）→ 欄の表記（他地区・中央）
+  const rcd = td.querySelector("input[id^='rcd_']");
+  if (rcd && /^\d{8}$/.test(rcd.value || "")) { r.date = rcd.value; r.date_src = "rcd"; }
+  else if (vm) { r.date = ymd(2000 + +vm[2], vm[3], vm[4]); r.date_src = "表記"; }
+  // レースID: 結果へのリンク → rc の値
+  const a = td.querySelector("a.race_name_len") || td.querySelector("a[href*='/result/']");
+  if (a) r.race_id = idFrom(a, /result\/(\d{16})/);
+  if (!r.race_id) { const ip = td.querySelector("input[id^='rc_']"); if (ip && /^\d{16}$/.test(ip.value || "")) r.race_id = ip.value; }
+  if (r.race_id) r.rno = String(+r.race_id.slice(14, 16));
+  const nm = td.querySelector(".race_name_len");
+  if (nm) { r.title_raw = nm.getAttribute("title") || ""; r.label_raw = txt(nm); }
+  r.region = REGION[r.venue] || (r.venue ? "不明" : "");
+  r.nankan4 = r.region === "南関東" ? r.venue : "";
+  const pop = td.querySelector("span.popularity");
+  if (pop) {
+    const t = txt(pop);
+    r.heads = (t.match(/(\d+)頭/) || ["", ""])[1]; r.num = (t.match(/(\d+)番/) || ["", ""])[1]; r.pop = (t.match(/(\d+)人気/) || ["", ""])[1];
+    const jk = pop.nextElementSibling;
+    if (jk) {
+      let jt = txt(jk);
+      const mk = jt.match(/^([▲△☆◇★])\s*(.*)$/); if (mk) { r.gen_mark = mk[1]; jt = mk[2]; }
+      const m = jt.match(/^(.*?)\s*(\d+(?:\.\d)?)$/);
+      if (m) { r.jockey = m[1]; r.kin = m[2]; } else r.jockey = jt;
+    }
+  }
+  r.waku = wakuOf(r.num, r.heads);
+  r.bw = numOr(txt(td.querySelector("span.weight")).replace(/kg$/, ""));
+  r.winner = txt(td.querySelector("span.winner"));
+  const rt = txt(td.querySelector("span.racetime")); const rm = rt.match(/^(\S+)\s*(?:\(([^)]*)\))?/);
+  if (rm) { r.time_raw = rm[1]; r.time = timeSec(rm[1]); r.margin = numOr(rm[2] || ""); }
+  const ft = txt(td.querySelector("span.furlongtime")); const fm = ft.match(/3F\s*([\d.]+)\s*(?:\((\d+)\))?/);
+  if (fm) { r.l3f = fm[1]; r.l3f_rank = fm[2] || ""; }
+  const pos = td.querySelector("p.position");
+  if (pos) {
+    const ps = [...pos.querySelectorAll("span")].map(txt).filter(Boolean);
+    r.pass_raw = ps.join(" "); r.pass_n = ps.length ? String(ps.length) : "";
+    ps.slice(0, 4).forEach((v, i) => r["pass" + (i + 1)] = numOr(v));
+    r.pass_last = ps.length ? numOr(ps[ps.length - 1]) : "";
+  }
+  return r;
+}
+
+/* ---------- 出走表: 詳細の表 ---------- */
+const A_CELLS = [["a_besttime", "mk-btm"], ["a_dist_rec", "mk-oky"], ["a_venue_rec", "mk-ojo"], ["a_jky_rec", "mk-kwc"], ["a_jky_pct", "mk-kwp"],
+  ["a_baba_rec", "mk-baba"], ["a_intv_rec", "mk-intv"], ["a_sire", "mk-sire"], ["a_season_rec", "mk-kise"], ["a_jky_course", "mk-kco"],
+  ["a_ret_horse", "mk-hrtn"], ["a_ret_jky", "mk-krtn"], ["a_ai_course", "cs-ai1"], ["a_ai_trainer", "cs-ai2"], ["a_bw_win", "mk-wre"]];
+function cellRaw(td) {
+  if (!td) return "";
+  const ps = [...td.querySelectorAll("p")];
+  if (ps.length) return ps.map(p => norm(p.innerHTML.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ")) || "_").join(" | ");
+  return txt(td);
+}
+function parseDetail(doc) {
+  const t = doc.querySelector("table.tb-shousai");
+  const out = []; if (!t) return { rows: out, labels: "" };
+  const labs = [];
+  for (const th of t.querySelectorAll("th")) {
+    const cls = [...th.classList].find(c => /^cs-/.test(c)); const tt = txt(th);
+    if (cls && /\d{3,4}|浦和|良|日未満|月～|今回騎手|単勝/.test(tt) && tt.length < 120) labs.push(cls + "=" + tt);
+  }
+  for (const tr of t.querySelectorAll("tr")) {
+    const ub = tr.querySelector("td.umaban"); if (!ub) continue;
+    const d = {}; d.num_raw = txt(ub);
+    const nm = tr.querySelector("td.pr-umaName-textRound");
+    const na = nm ? nm.querySelector("a") : null; d.horse_id = idFrom(na, /uma_info\/(\d+)/);
+    const ps = nm ? [...nm.querySelectorAll("p.nk23_u-text10")].map(txt) : [];
+    const bms = ps.find(s => /^（.*）$/.test(s)); d.damsire = bms ? bms.slice(1, -1) : "";
+    const g1 = tr.querySelector("td.cs-g1");
+    const gp = g1 ? [...g1.querySelectorAll("p.nk23_c-table22__Grouptxt")] : [];
+    d.gen_mark = ""; if (gp[0]) { const m = txt(gp[0]).match(/^([▲△☆◇★])/); if (m) d.gen_mark = m[1]; }
+    d.kin_detail = gp[0] ? numOr(txt(gp[0].querySelector(".nk23_u-text12"))) : "";
+    const lic = tr.querySelector("input[name='jockey_license']"); d.jockey_lic = lic ? lic.value : "";
+    const g2 = tr.querySelector("td.cs-g2"); const bw = brParts(g2); d.bw = numOr(bw[0]); d.bw_diff_raw = bw[1] || "";
+    d.runs = [1, 2, 3, 4, 5].map(k => parseRun(tr.querySelector("td.cs-z" + k)));
+    A_CELLS.forEach(([c, cls]) => d[c] = cellRaw(tr.querySelector("td." + cls)));
+    out.push(d);
+  }
+  return { rows: out, labels: labs.join(" || ") };
+}
+
+/* ---------- 結果 ---------- */
+function parseResult(doc) {
+  const o = { rows: new Map(), weather: "", baba: "", tan: new Map(), fuku: new Map(), wins: 0 };
+  const lab = doc.querySelector("p.nk23_c-table01__txt");
+  const lt = txt(lab) || txt(doc.body).slice(0, 20000);
+  const w = lt.match(/天候:\s*(\S+)/); o.weather = w ? w[1] : "";
+  const b = lt.match(/馬場:\s*(\S+\s*\S+)/); o.baba = b ? b[1] : "";
+  const t = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /馬名/.test(txt(x.querySelector("tr"))) && /人気/.test(txt(x.querySelector("tr"))));
+  if (t) {
+    let prevFin = "";
+    for (const tr of [...t.querySelectorAll("tr")].slice(1)) {
+      const tds = [...tr.children].filter(x => x.tagName === "TD");
+      if (tds.length < 15) continue;
+      const v = tds.map(txt);
+      const r = { fin_raw: v[0], waku: v[1], num: v[2], horse_id: idFrom(tds[3].querySelector("a"), /uma_info\/(\d+)/),
+        kin: numOr(v[5]), bw: numOr(v[6].replace(/kg$/, "")), bw_diff_raw: v[7], time_raw: v[10], margin_raw: v[11],
+        l3f: numOr(v[12]), pass_raw: v[13], pop: numOr(v[14]) };
+      r.fin = /^\d+$/.test(r.fin_raw) ? r.fin_raw : (/同着/.test(r.fin_raw) && prevFin ? prevFin : "");   // 「同着」は上の行と同じ着順
+      if (r.fin) prevFin = r.fin;
+      if (r.fin === "1") o.wins++;
+      if (r.num) o.rows.set(r.num, r);
+    }
+  }
+  const pt = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /組番/.test(txt(x.querySelector("tr"))) && /単勝/.test(txt(x)) && x.querySelectorAll("tr").length > 6);
+  o.pay_found = !!pt;
+  if (pt) {
+    let kind = "";
+    for (const tr of pt.querySelectorAll("tr")) {
+      const cells = [...tr.children];
+      if (cells.length && cells[0].tagName === "TH") { kind = txt(cells[0]); cells.shift(); }
+      const v = cells.map(txt);
+      if (v.length >= 2 && /^\d+$/.test(v[0])) {
+        const amt = v[1].replace(/[,円]/g, "");
+        if (kind === "単勝") o.tan.set(v[0], amt); else if (kind === "複勝") o.fuku.set(v[0], amt);
+      }
+    }
+  }
+  return o;
+}
+function bwDiff(s) { s = (s || "").replace("＋", "+").replace(/[－−]/g, "-"); if (/±\s*0/.test(s)) return "0"; const m = s.match(/^([+-]?\d+)$/); return m ? String(+m[1]) : ""; }
+
+/* ---------- 列 ---------- */
+const R_COLS = ["race_id", "date", "venue", "kai", "nichi", "rno", "post_time", "dist", "surface", "inout", "course_raw", "title_raw", "cond_raw",
+  "cond1", "cond2", "cond3", "cond4", "cond5", "prize1", "heads_card", "heads", "n_scratched", "baba", "weather", "lab_raw"].map(c => "r_" + c);
+const H_COLS = ["num", "waku", "horse_id", "name", "sex", "age", "birth", "birth_raw", "color", "sire", "dam", "damsire", "jockey", "jockey_id", "jockey_aff", "gen_mark",
+  "kin", "trainer", "trainer_id", "trainer_aff", "owner", "breeder", "bw", "bw_diff", "scratched"].map(c => "h_" + c);
+const A_COLS = A_CELLS.map(x => x[0]);
+const PK = ["exists", "abnormal", "date", "date_src", "race_id", "rno", "venue", "region", "nankan4", "dist", "surface", "inout", "course_raw", "baba",
+  "title_raw", "label_raw", "heads", "num", "waku", "fin", "fin_raw", "pop", "jockey", "gen_mark", "kin", "bw", "time", "time_raw", "margin", "l3f", "l3f_rank",
+  "pass_raw", "pass1", "pass2", "pass3", "pass4", "pass_n", "pass_last", "winner", "raw", "link", "prize1", "link_title_raw", "link_cond_raw", "link_weather", "link_baba"];
+const DK = ["days", "dist_diff", "venue_change", "surface_change", "region_change", "jockey_same", "kin_diff", "bw_diff", "age"];
+const D_COLS = ["d_gap12", "d_gap23", "d_gap34", "d_gap45", "d1_dist_change", "d_n_runs5", "d_n_nankan5", "d_runs_since_transfer"];
+const Y_COLS = ["fin", "fin_raw", "margin_raw", "time", "time_raw", "l3f", "pass_raw", "pop", "bw", "bw_diff", "tan_pay", "fuku_pay", "dead_heat", "res_found"].map(c => "y_" + c);
+const PCOLS = []; for (let k = 1; k <= 5; k++) PK.forEach(f => PCOLS.push("p" + k + "_" + f));
+const DKCOLS = []; for (let k = 1; k <= 5; k++) DK.forEach(f => DKCOLS.push("d" + k + "_" + f));
+const HCOLS = [...R_COLS, ...H_COLS, ...A_COLS, ...PCOLS, ...DKCOLS, ...D_COLS, ...Y_COLS];
+const PRCOLS = ["r_race_id", "r_date", "h_num", "h_horse_id", "k", ...PK.map(f => "p_" + f), ...DK.map(f => "d_" + f), "y_fin"];
+const esc = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+
+/* ---------- 実行 ---------- */
+$("bRun").onclick = async () => {
+  $("bRun").disabled = true;
+  const prog = $("prog"); prog.hidden = false;
+  const prob = [], info = [...PICKLOG];
+  const t0 = performance.now();
+  // 1回目: 全部読んで、レースごとに見出しと中身を持つ
+  const files = [];
+  for (const [rid, f] of CARD) files.push([rid, f, "card"]);
+  for (const [rid, f] of RES) files.push([rid, f, "res"]);
+  prog.max = files.length * 2; prog.value = 0;
+  const C = new Map(), R = new Map(), HDR = new Map();   // rid -> 出走表の中身 / 結果の中身 / 見出し
+  let moved = 0, unreadable = 0;
+  for (let i = 0; i < files.length; i++) {
+    const [rid, f, side] = files[i];
+    prog.value = i + 1;
+    if (i % 10 === 0) { $("status").textContent = "読んでいます " + (i + 1) + " / " + files.length; await new Promise(r => setTimeout(r, 0)); }
+    let rd; try { rd = await readFile(f); } catch (e) { prob.push(rid + ": 読み込みエラー " + e); unreadable++; continue; }
+    const kind = kindOf(rd.doc);
+    if (!kind) { prob.push(rid + ": 出走表でも結果でもないページ（題名: " + rd.doc.title + "）"); unreadable++; continue; }
+    if (kind !== side) moved++;
+    const prid = (rd.html.match(/program_id\s*=\s*"(\d{16})"/) || rd.html.match(/id="_cc_proId"\s+value="(\d{16})"/) || ["", ""])[1];
+    if (prid && prid !== rid) { prob.push(rid + ": ファイル名とページの中のレースID（" + prid + "）が違う（読まない）"); continue; }
+    const hd = parseHeader(rd.doc);
+    if (!hd) { prob.push(rid + ": 見出し（日付・場・距離）が読めない"); continue; }
+    if (kind === "card") {
+      const basic = parseBasic(rd.doc), det = parseDetail(rd.doc);
+      if (!basic.length) { prob.push(rid + ": 出走表の馬の表が読めない"); continue; }
+      C.set(rid, { hd, basic, det });
+    } else {
+      R.set(rid, { hd, res: parseResult(rd.doc) });
+    }
+    if (!HDR.has(rid)) HDR.set(rid, hd);
+  }
+  if (moved) info.push("選んだ欄と中身が違うファイル " + moved + "件（題名を見て正しい側として読んだ）");
+  // 2回目: 1頭1行を作る
+  const H = [HCOLS.join(",")], P = [PRCOLS.join(",")];
+  const ids = [...C.keys()].sort();
+  const st = { races: 0, horses: 0, scratched: 0, noRes: 0, deadHeat: 0, noWin: 0, numMismatch: 0, idMismatch: 0, dateBad: 0,
+    headsDiff: 0, resMissingHorse: 0, payMissing: 0, wakuChk: 0, wakuBad: 0 };
+  const empty = {}; HCOLS.forEach(c => empty[c] = 0);
+  const link = {};            // key -> [past runs, linked, prize found]
+  const addL = (key, linked, prize) => { const a = link[key] || (link[key] = [0, 0, 0]); a[0]++; if (linked) a[1]++; if (prize) a[2]++; };
+  const venueUnknown = new Map();
+  for (let i = 0; i < ids.length; i++) {
+    const rid = ids[i];
+    prog.value = files.length + Math.round((i + 1) / ids.length * files.length);
+    if (i % 20 === 0) { $("status").textContent = "表を作っています " + (i + 1) + " / " + ids.length; await new Promise(r => setTimeout(r, 0)); }
+    const { hd, basic, det } = C.get(rid);
+    const rr = R.get(rid);
+    if (rr) {
+      const h2 = rr.hd;
+      if (h2.date !== hd.date || h2.venue !== hd.venue || h2.rno !== hd.rno) prob.push(rid + ": 出走表と結果で日付・場・Rが違う");
+    } else { st.noRes++; }
+    const res = rr ? rr.res : null;
+    if (res && !res.pay_found) st.payMissing++;
+    if (res && res.wins > 1) st.deadHeat++;
+    if (res && res.wins === 0) { st.noWin++; info.push(rid + ": 結果に1着の馬がない"); }
+    const detById = new Map(), detByNum = new Map();
+    det.rows.forEach(d => { if (d.horse_id) detById.set(d.horse_id, d); detByNum.set(d.num_raw, d); });
+    const nScr = basic.filter(h => !/^\d+$/.test(h.num_raw) || /取消|除外/.test(h.row_text)).length;
+    const heads = basic.length - nScr;
+    if (hd.heads_card && +hd.heads_card !== heads) { st.headsDiff++; info.push(rid + ": 見出しの頭数 " + hd.heads_card + "・表の出走馬 " + heads + "頭（取消・除外 " + nScr + "）"); }
+    if (det.rows.length !== basic.length) prob.push(rid + ": 基本の表 " + basic.length + "頭・詳細の表 " + det.rows.length + "頭で数が違う");
+    const race = { r_race_id: rid, r_heads: heads, r_n_scratched: nScr, r_lab_raw: det.labels, r_baba: rr ? res.baba : "", r_weather: rr ? res.weather : "" };
+    ["date", "venue", "kai", "nichi", "rno", "post_time", "dist", "surface", "inout", "course_raw", "title_raw", "cond_raw", "cond1", "cond2", "cond3", "cond4", "cond5", "prize1", "heads_card"]
+      .forEach(c => race["r_" + c] = hd[c]);
+    if (rid.slice(14, 16) !== String(hd.rno).padStart(2, "0") || rid.slice(0, 8) !== hd.date) { st.idMismatch++; prob.push(rid + ": レースIDと見出しの日付・Rが合わない"); }
+    for (const h of basic) {
+      const d = (h.horse_id && detById.get(h.horse_id)) || detByNum.get(h.num_raw) || null;
+      if (!d) prob.push(rid + ": 馬 " + h.name + " の詳細の行が見つからない");
+      const scratched = !/^\d+$/.test(h.num_raw) || /取消|除外/.test(h.row_text) || (d && !/^\d+$/.test(d.num_raw));
+      if (scratched) st.scratched++;
+      else if (h.waku && /^\d+$/.test(h.num_raw)) { st.wakuChk++; if (wakuOf(h.num_raw, basic.length) !== h.waku && wakuOf(h.num_raw, heads) !== h.waku) { st.wakuBad++; info.push(rid + ": 馬番 " + h.num_raw + " の枠が8枠制の計算と合わない"); } }
+      const row = Object.assign({}, race);
+      const sa = h.sexage.match(/^(\D+?)(\d+)$/);
+      const bm = h.birth_raw.match(/^(\d{2})\.(\d{1,2})\.(\d{1,2})/);
+      const birth = bm ? ymd(2000 + +bm[1], bm[2], bm[3]) : "";
+      Object.assign(row, { h_num: /^\d+$/.test(h.num_raw) ? h.num_raw : "", h_waku: h.waku, h_horse_id: h.horse_id, h_name: h.name,
+        h_sex: sa ? sa[1] : "", h_age: sa ? sa[2] : "", h_birth: birth, h_color: h.color, h_sire: h.sire, h_dam: h.dam, h_damsire: d ? d.damsire : "",
+        h_jockey: h.jockey, h_jockey_id: h.jockey_id || (d ? d.jockey_lic : ""), h_jockey_aff: h.jockey_aff, h_gen_mark: h.gen_mark || (d ? d.gen_mark : ""), h_birth_raw: h.birth_raw,
+        h_kin: h.kin || (d ? d.kin_detail : ""), h_trainer: h.trainer, h_trainer_id: h.trainer_id, h_trainer_aff: h.trainer_aff,
+        h_owner: h.owner, h_breeder: h.breeder, h_bw: h.bw || (d ? d.bw : ""), h_bw_diff: bwDiff(h.bw_diff_raw || (d ? d.bw_diff_raw : "")),
+        h_scratched: scratched ? "1" : "0" });
+      A_COLS.forEach(c => row[c] = d ? d[c] : "");
+      const runs = d ? d.runs : [1, 2, 3, 4, 5].map(() => parseRun(null));
+      // 過去走のつながり
+      runs.forEach((r, j) => {
+        const k = j + 1;
+        if (r.exists === "1" && r.abnormal === "" && r.venue && !REGION[r.venue]) venueUnknown.set(r.venue, (venueUnknown.get(r.venue) || 0) + 1);
+        if (r.date && hd.date && r.date >= hd.date) { st.dateBad++; prob.push(rid + " 馬番" + row.h_num + ": " + k + "走前の日付 " + r.date + " が今回より前でない"); }
+        const L = r.race_id ? HDR.get(r.race_id) : null;
+        const inC = r.race_id && C.has(r.race_id), inR = r.race_id && R.has(r.race_id);
+        r.link = inC && inR ? "両方" : inC ? "出走表" : inR ? "結果" : "なし";
+        r.prize1 = L ? L.prize1 : ""; r.link_title_raw = L ? L.title_raw : ""; r.link_cond_raw = L ? L.cond_raw : "";
+        r.link_weather = inR ? R.get(r.race_id).res.weather : ""; r.link_baba = inR ? R.get(r.race_id).res.baba : "";
+        if (r.exists === "1" && r.abnormal !== "初出走欄") {
+          const lk = r.link !== "なし", pz = !!r.prize1;
+          addL("全体", lk, pz); addL("k=" + k, lk, pz); addL("区分=" + (r.region || "(場なし)"), lk, pz);
+          addL("月=" + (r.date ? r.date.slice(0, 6) : "(日付なし)"), lk, pz); addL("ID=" + (r.race_id ? "あり" : "なし"), lk, pz);
+        }
+        PK.forEach(f => row["p" + k + "_" + f] = r[f]);
+        // 今回との差
+        const ok = r.exists === "1" && r.abnormal !== "初出走欄";
+        const dd = {
+          days: ok ? daysBetween(r.date, hd.date) : "",
+          dist_diff: ok && r.dist && hd.dist ? String(+hd.dist - +r.dist) : "",
+          venue_change: ok && r.venue ? (r.venue !== hd.venue ? "1" : "0") : "",
+          surface_change: ok && r.surface && hd.surface ? (r.surface !== hd.surface ? "1" : "0") : "",
+          region_change: ok && r.region ? (r.region !== "南関東" ? "1" : "0") : "",
+          jockey_same: ok && r.jockey && row.h_jockey ? (row.h_jockey.replace(/\s/g, "").startsWith(r.jockey.replace(/\s/g, "")) ? "1" : "0") : "",
+          kin_diff: ok && r.kin && row.h_kin ? (+row.h_kin - +r.kin).toFixed(1) : "",
+          bw_diff: ok && r.bw && row.h_bw ? String(+row.h_bw - +r.bw) : "",
+          age: ok && r.date && birth ? String(+r.date.slice(0, 4) - +birth.slice(0, 4)) : "" };
+        DK.forEach(f => row["d" + k + "_" + f] = dd[f]);
+      });
+      const act = runs.map(r => r.exists === "1" && r.abnormal === "");
+      for (let k = 1; k <= 4; k++) row["d_gap" + k + (k + 1)] = runs[k - 1].date && runs[k].date ? daysBetween(runs[k].date, runs[k - 1].date) : "";
+      const r1 = runs[0];
+      row.d1_dist_change = act[0] && r1.dist && hd.dist ? (+hd.dist > +r1.dist ? "延長" : +hd.dist < +r1.dist ? "短縮" : "同じ") : "";
+      row.d_n_runs5 = String(act.filter(Boolean).length);
+      row.d_n_nankan5 = String(runs.filter((r, j) => act[j] && r.region === "南関東").length);
+      let tr = ""; let c = 0;
+      for (let j = 0; j < 5; j++) { if (!act[j]) continue; c++; if (runs[j].region && runs[j].region !== "南関東") { tr = String(c); break; } }
+      row.d_runs_since_transfer = tr;
+      // 答え
+      const y = res && row.h_num ? res.rows.get(row.h_num) : null;
+      if (res && row.h_num && !y && !scratched) { st.resMissingHorse++; info.push(rid + ": 馬番 " + row.h_num + " が結果の表にない"); }
+      if (y && y.horse_id && h.horse_id && y.horse_id !== h.horse_id) { st.numMismatch++; prob.push(rid + ": 馬番 " + row.h_num + " の馬が出走表と結果で違う"); }
+      Object.assign(row, { y_res_found: res ? "1" : "0", y_fin: y ? y.fin : "", y_fin_raw: y ? y.fin_raw : "", y_margin_raw: y ? y.margin_raw : "",
+        y_time: y ? timeSec(y.time_raw) : "", y_time_raw: y ? y.time_raw : "", y_l3f: y ? y.l3f : "", y_pass_raw: y ? y.pass_raw : "", y_pop: y ? y.pop : "",
+        y_bw: y ? y.bw : "", y_bw_diff: y ? bwDiff(y.bw_diff_raw) : "",
+        y_tan_pay: res && res.pay_found && y ? (res.tan.get(row.h_num) || "0") : "", y_fuku_pay: res && res.pay_found && y ? (res.fuku.get(row.h_num) || "0") : "",
+        y_dead_heat: res ? (res.wins > 1 ? "1" : "0") : "" });
+      HCOLS.forEach(cn => { if (row[cn] === "" || row[cn] == null) empty[cn]++; });
+      H.push(HCOLS.map(cn => esc(row[cn])).join(","));
+      runs.forEach((r, j) => {
+        const k = j + 1; const pr = { r_race_id: rid, r_date: hd.date, h_num: row.h_num, h_horse_id: row.h_horse_id, k: k, y_fin: row.y_fin };
+        PK.forEach(f => pr["p_" + f] = r[f]); DK.forEach(f => pr["d_" + f] = row["d" + k + "_" + f]);
+        P.push(PRCOLS.map(cn => esc(pr[cn])).join(","));
+      });
+      st.horses++;
+    }
+    st.races++;
+  }
+  const onlyRes = [...R.keys()].filter(x => !C.has(x)).sort();
+  const sec = ((performance.now() - t0) / 1000).toFixed(1);
+  outH = "﻿" + H.join("\r\n") + "\r\n"; outP = "﻿" + P.join("\r\n") + "\r\n";
+  // 報告
+  const pct = (a, b) => b ? (100 * a / b).toFixed(1) + "%" : "-";
+  const rep = [];
+  rep.push("v5.0 学習用テーブルの報告"); rep.push("ツール: " + VERSION); rep.push("作成: " + new Date().toLocaleString("ja-JP"));
+  rep.push("");
+  rep.push("【1. 件数】");
+  rep.push("  選んだファイル: 出走表の欄 " + CARD.size + "件 / 結果の欄 " + RES.size + "件（読めなかった " + unreadable + "件）");
+  rep.push("  読めたページ: 出走表 " + C.size + "レース / 結果 " + R.size + "レース");
+  rep.push("  書き出し: " + st.races + "レース / " + st.horses + "頭（うち取消・除外 " + st.scratched + "頭）/ 過去走の行 " + (P.length - 1) + "（" + sec + "秒）");
+  rep.push("  結果が無いレース: " + st.noRes + " / 出走表が無く結果だけのレース: " + onlyRes.length + "（表には入れず、過去走のつながり先としてだけ使う）");
+  rep.push("  払戻の表が無いレース: " + st.payMissing + " / 1着同着: " + st.deadHeat + " / 1着なし: " + st.noWin);
+  rep.push("  見出しの頭数と表の出走馬の数が違うレース: " + st.headsDiff + " / 出走表にあって結果の表に無い馬: " + st.resMissingHorse);
+  rep.push("  枠の計算の確かめ（今回のレースで、出走表の枠と8枠制の計算が合うか）: " + (st.wakuChk - st.wakuBad) + " / " + st.wakuChk + " 頭で一致");
+  rep.push("");
+  rep.push("【2. 過去走のつながりの率】（数える対象: 欄に何か書いてある過去走。初出走欄は除く。能試・取消なども含む）");
+  rep.push("  区切り\t過去走\tつながった\t率\t1着賞金あり\t率");
+  const keys = Object.keys(link).sort((a, b) => {
+    const o = s => s === "全体" ? "0" : s.startsWith("k=") ? "1" + s : s.startsWith("区分=") ? "2" + s : s.startsWith("ID=") ? "3" + s : "4" + s;
+    return o(a) < o(b) ? -1 : 1; });
+  for (const kk of keys) { const a = link[kk]; rep.push("  " + kk + "\t" + a[0] + "\t" + a[1] + "\t" + pct(a[1], a[0]) + "\t" + a[2] + "\t" + pct(a[2], a[0])); }
+  rep.push("  ※ 中央の過去走には結果へのリンク（レースID）が無いので、入力の中に同じレースがあってもつながらない。");
+  rep.push("  ※ 他地区の過去走はレースIDがあっても、第1群に他地区の出走表・結果が無ければつながらない。");
+  rep.push("");
+  rep.push("【3. 場の名前の表に無い場】" + (venueUnknown.size ? "" : "なし"));
+  for (const [v, n] of venueUnknown) rep.push("  " + v + "\t" + n + "走");
+  rep.push("");
+  rep.push("【4. horses.csv の列ごとの空の割合】（取消・除外の馬も含む全 " + st.horses + "頭が分母）");
+  for (const cn of HCOLS) rep.push("  " + cn + "\t" + empty[cn] + "\t" + pct(empty[cn], st.horses));
+  rep.push("");
+  rep.push(prob.length ? "【5. 問題】" + prob.length + "件" : "【5. 問題】なし"); prob.slice(0, 500).forEach(p => rep.push("  " + p));
+  if (prob.length > 500) rep.push("  …ほか " + (prob.length - 500) + "件");
+  rep.push(""); rep.push(info.length ? "【6. お知らせ（問題ではない）】" + info.length + "件" : "【6. お知らせ】なし"); info.slice(0, 500).forEach(p => rep.push("  " + p));
+  if (info.length > 500) rep.push("  …ほか " + (info.length - 500) + "件");
+  rep.push(""); rep.push("【7. 結果だけあって出走表が無いレース】" + onlyRes.length + "件"); onlyRes.slice(0, 300).forEach(p => rep.push("  " + p));
+  outR = rep.join("\n") + "\n";
+  const all = link["全体"] || [0, 0, 0];
+  $("summary").innerHTML = "<p>" + st.races + "レース・" + st.horses + "頭を書き出しました（" + sec + "秒）。過去走のつながり " + pct(all[1], all[0]) +
+    "・1着賞金あり " + pct(all[2], all[0]) + "。" + (prob.length ? '<span class="bad">問題 ' + prob.length + "件</span>（報告を見てください）" : '<span class="ok">問題なし</span>') + "</p>";
+  $("report").textContent = outR;
+  $("outSec").hidden = false; $("status").textContent = "終わりました。"; $("bRun").disabled = false;
+};
+
+function download(name, text, type) {
+  const blob = new Blob([text], { type: type });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$("bH").onclick = () => download("horses.csv", outH, "text/csv;charset=utf-8");
+$("bP").onclick = () => download("past_runs.csv", outP, "text/csv;charset=utf-8");
+$("bR").onclick = () => download("report.txt", outR, "text/plain;charset=utf-8");
+</script>
+</body>
+</html>
