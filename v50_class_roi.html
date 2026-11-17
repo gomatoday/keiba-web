@@ -47,7 +47,7 @@ pre{white-space:pre-wrap;font-size:.78rem;background:color-mix(in srgb,var(--mut
 <div class="row"><input type="file" id="fJs" multiple><span id="cJs" class="note" style="margin:0">0件</span></div>
 <p class="note"><b>c. 第2群の結果のページ</b>（成績・払戻金のページの .txt。ファイル名がレースID 16桁で始まるもの）</p>
 <div class="row"><input type="file" id="fRes" multiple accept=".txt,.html,.htm"><span id="cRes" class="note" style="margin:0">0件</span></div>
-<p class="note">出走表は要りません（a の集計のCSVに、出走表から読んだ分が入っています）。第2群（9/14〜10/13）より外のレースのファイルが混ざっていても、計算では使いません。</p>
+<p class="note">ファイル名のどこかにレースID（16桁）があれば読めます（例: 2026091420090101.txt、result_2026091420090101.txt）。出走表は要りません（a の集計のCSVに、出走表から読んだ分が入っています）。第2群（9/14〜10/13）より外のレースのファイルが混ざっていても、計算では使いません。</p>
 </section>
 
 <section>
@@ -66,7 +66,7 @@ pre{white-space:pre-wrap;font-size:.78rem;background:color-mix(in srgb,var(--mut
 <section>
 <h2>このページについて</h2>
 <p class="note">計算のコードは bg_fit.py（4916fb44…）・odds_from_js.py（0763b6c1…）・class_roi.py（4cc52946…）をそのまま埋め込んだもの（ページで読み込んだときに SHA-256 を確かめる）。手順: ① oddsJS と集計のCSVから odds_from_js.csv を作る（②③で使ったもの d9a2d8d0… と一致するかを表示）。② 結果のページの払戻の表（単勝・複勝）を読む（extract_result_only_v50.html と同じ読み方）。③ class_roi.py を1回動かす。</p>
-<p class="note">ページの版: class-roi-page 1 (2026-11-17)</p>
+<p class="note">ページの版: class-roi-page 2 (2026-11-17)</p>
 </section>
 </main>
 
@@ -619,20 +619,20 @@ $("bRun").onclick = async () => {
   const chk = [];
   try{
     st("oddsJS を書き込んでいます…");
-    for (const f of $("fJs").files){ if (!/^\d{16}/.test(f.name)) continue; py.FS.writeFile("/w/js/" + f.name.replace(/[^\w.\-]/g, "_"), new Uint8Array(await f.arrayBuffer())); }
+    for (const f of $("fJs").files){ const mj = f.name.match(/(\d{16})/); if (!mj) continue; py.FS.writeFile("/w/js/" + mj[1] + ".do.js", new Uint8Array(await f.arrayBuffer())); }
     py.FS.writeFile("/w/rank_compare_1.csv", rcBuf);
     st("結果のページの払戻を読んでいます…");
-    const rows = [["race_id", "tansho", "fukusho"]], probs = []; let n = 0;
+    const rows = [["race_id", "tansho", "fukusho"]], probs = []; let n = 0, g2 = 0;
     for (const f of [...$("fRes").files].sort((a, b) => a.name.localeCompare(b.name))){
-      const m = f.name.match(/^(\d{16})/); if (!m) { probs.push(f.name + ": レースIDで始まらない"); continue; }
+      const m = f.name.match(/(\d{16})/); if (!m) { probs.push(f.name + ": 名前にレースID（16桁）がない"); continue; }
       const doc = await readHtml(f);
       if (!/成績/.test(doc.title)) { probs.push(f.name + ": 結果のページではない（題名: " + doc.title + "）"); continue; }
-      const p = parsePay(doc); rows.push([m[1], p.tan, p.fuku]); n++;
+      const p = parsePay(doc); rows.push([m[1], p.tan, p.fuku]); n++; g2 += (m[1].slice(0, 8) >= "20260914" && m[1].slice(0, 8) <= "20261013") ? 1 : 0;
       if (!p.tan) probs.push(m[1] + ": 単勝の払戻が読めない");
     }
     roText = "﻿" + rows.map(r => r.map(escC).join(",")).join("\r\n") + "\r\n";
     py.FS.writeFile("/w/result_only.csv", enc.encode(roText));
-    chk.push("結果のページ: " + n + " 件を読んだ" + (probs.length ? "（問題 " + probs.length + " 件: " + probs.slice(0, 5).join("；") + (probs.length > 5 ? " …" : "") + "）" : "（問題なし）"));
+    chk.push("結果のページ: 選んだ " + $("fRes").files.length + " 件のうち " + n + " 件を読んだ（第2群の期間 " + g2 + " 件）" + (probs.length ? "（問題 " + probs.length + " 件: " + probs.slice(0, 5).join("；") + (probs.length > 5 ? " …" : "") + "）" : "（問題なし）"));
     st("odds_from_js.csv を作っています…");
     py.runPython("import os; os.chdir('/w'); import odds_from_js as OJ; OJ.main('/w/js', 'rank_compare_1.csv', 'odds_from_js.csv')");
     const oh = await hex(py.FS.readFile("/w/odds_from_js.csv"));
