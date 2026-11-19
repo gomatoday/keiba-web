@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>払戻の読み出し（結果のページ → CSV）</title>
+<style>body{font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;max-width:820px;margin:0 auto;padding:16px;line-height:1.6;color:#1d2433}
+h1{font-size:1.25rem}h2{font-size:1rem;margin:18px 0 6px}.note{color:#5b6476;font-size:.85rem}.ok{color:#1f7a4d;font-weight:600}.bad{color:#b3261e;font-weight:600}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid #2456c7;background:#2456c7;color:#fff}button:disabled{opacity:.4}
+pre{background:#f4f6fa;padding:8px;white-space:pre-wrap;font-size:.8rem}</style></head><body>
+<h1>払戻の読み出し（結果のページ → CSV）</h1>
+<p class="note">結果のページ（成績のページ）の「払戻金」の表から、単勝・複勝・枠複・馬連（普通馬複）・枠単・馬単・ワイド・三連複・三連単の組番・金額・人気と備考を読み、1行1組の CSV に書き出します。着順の表や馬の情報は読みません。計算はこのブラウザの中だけで行い、どこにも送りません。版: payout-extract 1 (2026-11-20)</p>
+<h2>結果のページを選ぶ（何件でも）</h2><input type="file" id="fRes" multiple><span id="nS" class="note"></span>
+<p><button id="bRun" disabled>読み出す</button> <button id="bSave" disabled>CSV を保存</button></p>
+<div id="st" class="note"></div><pre id="rep" hidden></pre>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KIND = { "単勝": "tan", "複勝": "fuku", "枠複": "wakuren", "普通馬複": "umaren", "枠単": "wakutan", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
+const norm = s => String(s || "").replace(/\s+/g, " ").trim();
+const esc = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+let OUT = null;
+$("fRes").addEventListener("change", () => { $("nS").textContent = " " + $("fRes").files.length + "件"; $("bRun").disabled = !$("fRes").files.length; });
+async function readText(f){ const buf = await f.arrayBuffer(); try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch (e) { return new TextDecoder("shift_jis").decode(buf); } }
+const ridOf = f => (f.name.match(/(\d{16})/) || [])[1];
+// 払戻金の表（スマートフォン向けの縦の表 .sp）。th（券種。rowspan）のある行で券種が決まり、続く td だけの行は同じ券種。
+function parsePay(doc){
+  const box = [...doc.querySelectorAll(".nk23_c-table01.sp")].find(d => /払戻金/.test(norm((d.querySelector(".nk23_c-table01__title") || {}).textContent)));
+  if (!box) return null;
+  const rows = [], memo = [];
+  let kind = "";
+  box.querySelectorAll("tbody tr").forEach(tr => {
+    const th = tr.querySelector(":scope > th"), td = [...tr.querySelectorAll(":scope > td")].map(x => norm(x.textContent));
+    if (th){ kind = norm(th.textContent); }
+    if (kind === "備考"){ if (td.join("")) memo.push(td.join(" ")); return; }
+    if (td.length >= 3 && td[0] && td[0] !== "-") rows.push({ kind: KIND[kind] || ("?" + kind), combo: td[0], pay: td[1].replace(/[,円]/g, ""), pop: td[2] });
+  });
+  return { rows, memo: memo.join(" / ") };
+}
+$("bRun").onclick = async () => {
+  $("bRun").disabled = true; const t0 = performance.now();
+  const lines = [["race_id", "kind", "combo", "pay", "pop", "memo"].join(",")], prob = []; let n = 0, nr = 0;
+  const fs = [...$("fRes").files].sort((a, b) => String(ridOf(a)).localeCompare(String(ridOf(b))));
+  const cnt = {};
+  for (let i = 0; i < fs.length; i++){
+    const rid = ridOf(fs[i]); if (!rid){ prob.push(fs[i].name + ": ファイル名にレースID（16桁）がない"); continue; }
+    if (i % 100 === 0){ $("st").textContent = "読んでいます " + (i + 1) + " / " + fs.length; await new Promise(r => setTimeout(r, 0)); }
+    const doc = new DOMParser().parseFromString(await readText(fs[i]), "text/html");
+    if (!/成績/.test(doc.title || "")){ prob.push(rid + ": 結果のページではない（題名: " + norm(doc.title).slice(0, 30) + "）"); continue; }
+    const P = parsePay(doc);
+    if (!P || !P.rows.length){ prob.push(rid + ": 払戻金の表が読めない"); continue; }
+    nr++;
+    P.rows.forEach(r => { lines.push([rid, r.kind, r.combo, r.pay, r.pop, P.memo].map(esc).join(",")); n++; cnt[r.kind] = (cnt[r.kind] || 0) + 1; });
+  }
+  OUT = "﻿" + lines.join("\r\n") + "\r\n";
+  $("rep").hidden = false;
+  $("rep").textContent = "結果のページ " + fs.length + "件のうち、払戻を読めたレース " + nr + "・行 " + n + "\n券種ごとの行: " + JSON.stringify(cnt) + "\n" + ((performance.now() - t0) / 1000).toFixed(0) + "秒" +
+    (prob.length ? "\n読めなかったもの " + prob.length + "件:\n" + prob.slice(0, 50).join("\n") : "");
+  $("st").innerHTML = '<span class="ok">終わりました。「CSV を保存」を押して、ファイルを Claude に渡してください。</span>';
+  $("bSave").disabled = false; $("bRun").disabled = false;
+};
+$("bSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([OUT], { type: "text/csv" })); a.download = "payouts_g1.csv"; a.click(); };
+</script></body></html>
