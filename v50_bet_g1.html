@@ -20,7 +20,7 @@ table{border-collapse:collapse;font-size:.85rem;margin:6px 0}th,td{border:1px so
 <h2>4. 第1群の結果のページ</h2><input type="file" id="fRes" multiple><span id="nS" class="note"></span>
 <p><button id="bRun" disabled>計算する</button> <button id="bMd" disabled>結果を保存（.md）</button> <button id="bDet" disabled>1点ごとの明細（CSV）を保存</button></p>
 <div id="st" class="note">部品を読み込んでいます…</div><pre id="rep" hidden></pre><div id="out"></div>
-<p class="note">埋め込んだもの: learn_core.js eb33827a… / card_rows.js 2403978c… / m1v2.py c34f2f4a… / m1v3.py 94dedd38… / bet_core.py d1d71db2…。版: bet-g1 1 (2026-11-20)</p>
+<p class="note">埋め込んだもの: learn_core.js eb33827a… / card_rows.js 2403978c… / m1v2.py c34f2f4a… / m1v3.py 94dedd38… / bet_core.py 7a84298a…。版: bet-g1 1 (2026-11-20)</p>
 <script type="text/plain" id="py-m1v2"># -*- coding: utf-8 -*-
 """m1v2 1 (2026-11-18)  M1 v2 v1 の運用の計算（見通しのページ・Pyodide で使う。numpy と pandas だけ）。
 学習側からそのまま写したもの（文字は変えていない）:
@@ -461,8 +461,8 @@ def compute(H, coef, drop=()):
     return out, deb, races
 </script>
 <script type="text/plain" id="py-bet_core"># -*- coding: utf-8 -*-
-"""bet_core 1 (2026-11-20)  回収率100%超えを目指す買い方の探索（第1群）の計算。ページ v50_bet_g1.html に埋め込む（numpy と pandas だけ）。
-決まりは bet_g1.py（0b07885f…。登録72）と同じで、関数 tops・bets と集計・選び方の部分は文字のまま写した。違いは入力だけ:
+"""bet_core 1.1 (2026-11-20。1.1 は「返還」の行を読み飛ばす。bet_g1.py 1.1 と同じ)  回収率100%超えを目指す買い方の探索（第1群）の計算。ページ v50_bet_g1.html に埋め込む（numpy と pandas だけ）。
+決まりは bet_g1.py 1.1（登録72）と同じで、関数 tops・bets と集計・選び方の部分は文字のまま写した。違いは入力だけ:
 horses.csv の代わりに、ページが出走表から作った行（card_rows.js）・結果のページから読んだ「出た馬」と確定の人気・払戻を使う。"""
 import os, io, json, itertools
 import numpy as np, pandas as pd
@@ -512,7 +512,7 @@ def run(rows_csv, drop_json, pay_csv, pop_json, c2p, c3p, min_points=300, line=1
     P = pd.read_csv(payp, dtype=str, encoding="utf-8-sig", keep_default_na=False)
     PB = {}
     for r in P.itertuples():
-        if r.kind in ("tan", "fuku", "wide") and r.pay.isdigit():
+        if r.kind in ("tan", "fuku", "wide") and r.pay.isdigit() and all(x.isdigit() for x in r.combo.split("-")):   # 1.1: 返還の行（組番が「返還」）は読まない
             PB.setdefault(r.race_id, {}).setdefault(r.kind, {})[tuple(sorted(int(x) for x in r.combo.split("-")))] = int(r.pay)
     use = sorted(r for r in set(T["v3"]) & set(T["v2"]) if r in PB)
     rows = []
@@ -545,7 +545,7 @@ def run(rows_csv, drop_json, pay_csv, pop_json, c2p, c3p, min_points=300, line=1
     f = lambda x: "—" if x is None else "%.1f" % x
     L = ["# 回収率100%超えを目指す買い方の探索（第1群）結果", "",
          "- **探索です。第1群は M1 v2・M1 v3 を作ったデータで、回収率は楽観に寄ります。15候補を試したので、偶然に高く出る候補もありえます。**",
-         "- 計画: 自分用_回収率改善の買い方_探索計画.md（登録72）。決まりは bet_g1.py（0b07885f…）と同じ。計算はページ v50_bet_g1.html（bet_core 1）。" + src,
+         "- 計画: 自分用_回収率改善の買い方_探索計画.md（登録72）。決まりは bet_g1.py 1.1（a981a204…）と同じ。計算はページ v50_bet_g1.html（bet_core 1.1）。" + src,
          "- 対象: %d レース（%d 開催日、%s〜%s）。人気は確定の人気（y_pop）。オッズの条件は使っていない。" % (len(use), len(ud), D0, D1),
          "- パラメータ: MIN_POINTS=%d、LINE=%s%%（%s）。" % (min_points, f(line), "計画で決めた既定値" if (min_points, line) == (300, 100.0) else "**追加の確かめ（既定値と違う）**"), "",
          "## 1. 全候補（M1 v3 v1 正式係数）", "",
