@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>市場の取りこぼし（オッズの物差し）の探索</title>
+<style>body{font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;max-width:900px;margin:0 auto;padding:16px;line-height:1.6;color:#1d2433}
+h1{font-size:1.25rem}h2{font-size:1rem;margin:18px 0 6px}.note{color:#5b6476;font-size:.85rem}.ok{color:#1f7a4d;font-weight:600}.bad{color:#b3261e;font-weight:600}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid #2456c7;background:#2456c7;color:#fff}button:disabled{opacity:.4}
+pre{background:#f4f6fa;padding:8px;white-space:pre-wrap;font-size:.8rem}.warn{background:#fff6e0;border:1px solid #f0d58a;padding:8px 12px;border-radius:8px;font-size:.88rem}</style></head><body>
+<h1>市場の取りこぼし（オッズの物差し）の探索</h1>
+<div class="warn"><b>探索です（自分用_オッズの物差し_探索計画.md）。</b>M1 の列ごとに、第2群の確定オッズから「市場の織り込み b」を、第1群の勝ち馬から「実際の効き γ」を同じ式で当てはめ、γ − b を取りこぼしの大きさとして測ります。先に偽のデータ（取りこぼしの無い世界の勝ち馬を引いた3組）を流し、主の10列で候補が2つ以上出る組があれば本番を流さずに止めます。第3群は使いません。</div>
+<h2>1. 第1群の材料（市場の取りこぼし_材料_第1群.csv）</h2><input type="file" id="f1" accept=".csv"> <span id="s1" class="note"></span>
+<h2>2. 第2群の材料（オッズの物差し_材料_第2群.csv）</h2><input type="file" id="f2" accept=".csv"> <span id="s2" class="note"></span>
+<p><button id="bRun" disabled>計算する（偽のデータ3組 → 本番）</button> <button id="bMd" disabled>結果を保存（.md）</button> <button id="bJs" disabled>詳しい値を保存（.json）</button></p>
+<div id="st" class="note">部品を読み込んでいます…</div><div id="out"></div>
+<p class="note">埋め込んだもの: resid_core.py 44dce58e… / odds_resid_core.py 0f117727…。版: odds-resid 1 (2026-11-20)。計算はこのブラウザの中だけで行い、どこにも送らない。数分かかります。</p>
+<script type="text/plain" id="py-resid_core"># -*- coding: utf-8 -*-
+"""resid_core 1.2 (2026-11-20。1.2 は Pyodide〔32ビット〕で np.bincount が int64 を受け付けないので intp に直した。計算は同じ。1.1 は、材料の中の走らなかった馬の行〔結果のページに取消・除外と載る馬。人気・着順・M1 の値が空〕を先に外すようにした。1 ではその馬のいるレースがまるごと除かれた)  市場の取りこぼしの探索（第1群。自分用_市場の取りこぼし_探索計画.md・登録77）の計算。
+ページ v50_resid_g1.html に埋め込み、手元の resid_g1.py からも呼ぶ。numpy と pandas だけ。
+入力: 材料の CSV（v50_resid_data_g1.html の出力。data_core 1）。
+対象: 材料のうち通常のレース（混在は M1 の値が無い馬がいるので除く）で、着順の数が 1 の馬がちょうど1頭いるレース。
+市場の物差し: 人気の数ごとの係数（1番人気を基準の 0。2〜9番人気は別々、10番人気以下はまとめて1つ。9個）だけの、勝ち馬の条件付きロジット。
+各列 x: 「人気の係数 ＋ γ·x」。x は 44列は材料の値のまま、合計・小計（m3_total・m3_ability・m3_today・m3_match・m2_total）はレースの中で z（標準偏差 0 のレースは 0）。
+出すもの: γ と 95%区間（開催日のブートストラップ 2000回、種 20261128。当てはめ直しは、全体の推定値から1歩のニュートン法〔開催日ごとの勾配・ヘッセ行列を重みで足す〕）、
+  交差検証の ΔLL（開催日で5つに分ける。種 20261129。1レースあたりの勝ち馬の対数尤度の差 = 人気＋x − 人気だけ）、
+  参考: 上位3頭の Plackett–Luce での γ（区間なし）、候補の列の、人気の帯ごと・列の上位1/3と下位1/3の単勝・複勝の回収率。
+候補の線: γ の95%区間が 0 を含まない、かつ交差検証の ΔLL ≥ +0.001。偽のデータ（着順をレースの中で並べ替える。種 1・2・3）で候補が2列以上なら止める。"""
+import io, json
+import numpy as np, pandas as pd
+
+SEED_B, SEED_CV, NB = 20261128, 20261129, 2000
+M1COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない",
+          "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上",
+          "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目",
+          "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目",
+          "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"]
+TOTALS = ["m3_total", "m3_ability", "m3_today", "m3_match", "m2_total"]
+COLS = M1COLS + TOTALS
+BANDS = [("1番人気", 1, 1), ("2〜3番人気", 2, 3), ("4〜6番人気", 4, 6), ("7番人気以下", 7, 99)]
+
+
+class Data:
+    def __init__(self, D, fake=None):
+        D = D[(D["mode"] == "通常") & (D["m3_total"] != "")].copy()   # 通常のレースで走った馬（M1 の値がある馬）だけ
+        D["fin"] = pd.to_numeric(D.fin, errors="coerce"); D["pop"] = pd.to_numeric(D["pop"], errors="coerce")
+        if fake is not None:
+            rng = np.random.default_rng(fake)
+            v = D.fin.values.copy()
+            for rid, ix in D.groupby("race_id").indices.items():
+                ok = ix[~np.isnan(v[ix])]; v[ok] = v[ok][rng.permutation(len(ok))]
+            D["fin"] = v
+        win = D[D.fin == 1].groupby("race_id").size()
+        keep = set(win[win == 1].index) & set(D[D["pop"].notna()].race_id) - set(D[D["pop"].isna()].race_id)
+        D = D[D.race_id.isin(keep)].sort_values(["race_id", "num"]).reset_index(drop=True)
+        for c in TOTALS:
+            v = pd.to_numeric(D[c], errors="coerce").fillna(0)
+            g = v.groupby(D.race_id); sd = g.transform("std", ddof=0)
+            D[c] = np.where(sd > 0, (v - g.transform("mean")) / sd.replace(0, 1), 0.0)
+        self.D = D
+        rid = D.race_id.values
+        self.ids, inv = np.unique(rid, return_inverse=True)
+        self.R = len(self.ids); pos = D.groupby("race_id").cumcount().values
+        self.N = int(pos.max()) + 1; self.inv, self.pos = inv, pos
+        self.mask = np.zeros((self.R, self.N), bool); self.mask[inv, pos] = True
+        p = D["pop"].values.astype(int); cat = np.clip(p, 1, 10)
+        P = np.zeros((len(D), 9)); r = cat >= 2; P[np.where(r)[0], cat[r] - 2] = 1.0
+        self.P = self._t(P)
+        self.day = D.groupby("race_id").date.first().loc[self.ids].values.astype(str)
+        fin = D.fin.values
+        self.order = -np.ones((self.R, 3), int)
+        df = pd.DataFrame({"r": inv, "p": pos, "f": fin}).dropna().sort_values(["r", "f", "p"])
+        for rr, G in df.groupby("r"):
+            q = G.p.values[:3]; self.order[rr, :len(q)] = q
+
+    def _t(self, X):
+        T = np.zeros((self.R, self.N, X.shape[1])); T[self.inv, self.pos] = X
+        return T
+
+    def x(self, c):
+        return self._t(pd.to_numeric(self.D[c], errors="coerce").fillna(0).values[:, None])
+
+
+def _stage_terms(T, mask, chosen, w, th):
+    """1段（勝ち馬、または PL の各段）の 対数尤度・勾配・ヘッセ行列（重み w つき）"""
+    U = np.where(mask, T @ th, -np.inf)
+    mx = U.max(1, keepdims=True); e = np.where(mask, np.exp(U - mx), 0.0); Z = e.sum(1, keepdims=True); p = e / Z
+    R = len(chosen); ok = chosen >= 0; rr = np.arange(R)[ok]; cc = chosen[ok]; ww = w[ok]
+    ll = (ww * (U[rr, cc] - (np.log(Z[ok, 0]) + mx[ok, 0]))).sum()
+    xb = np.einsum("rn,rnk->rk", p, T)
+    g = (ww[:, None] * (T[rr, cc] - xb[ok])).sum(0)
+    Exx = np.einsum("rn,rnk,rnl->rkl", p[ok], T[ok], T[ok])
+    H = -(ww[:, None, None] * (Exx - np.einsum("rk,rl->rkl", xb[ok], xb[ok]))).sum(0)
+    return ll, g, H
+
+
+def fit(T, d, idx, w=None, th0=None, stages=1, it=25, tol=1e-9):
+    """idx のレースで当てはめる（ニュートン法、小さな L2 0.01 で安定させる）"""
+    Tt, mask, order = T[idx], d.mask[idx], d.order[idx]
+    w = np.ones(len(idx)) if w is None else w
+    K = T.shape[2]; th = np.zeros(K) if th0 is None else th0.copy()
+    for _ in range(it):
+        ll, g, H = 0.0, np.zeros(K), np.zeros((K, K)); avail = mask.copy()
+        for j in range(stages):
+            c = order[:, j]
+            a, b, h = _stage_terms(Tt, avail, c, w, th); ll += a; g += b; H += h
+            ok = c >= 0; avail[np.arange(len(idx))[ok], c[ok]] = False
+        g -= 0.01 * th; H -= 0.01 * np.eye(K)
+        step = np.linalg.solve(H, g); th = th - step
+        if np.abs(step).max() < tol:
+            break
+    return th
+
+
+def onestep_boot(T, d, th, rb_days, dinv, lam=0.01):
+    """ブートストラップ: 全体の推定値 th から1歩のニュートン法。開催日ごとの勾配・ヘッセ行列（勝ち馬の段）を先に足し合わせておき、
+    重み（その日が選ばれた回数）を掛けて足すだけで当てはめ直す。戻り値: 各回の γ（最後の係数）"""
+    mask, c = d.mask, d.order[:, 0]
+    U = np.where(mask, T @ th, -np.inf)
+    mx = U.max(1, keepdims=True); e = np.where(mask, np.exp(U - mx), 0.0); p = e / e.sum(1, keepdims=True)
+    xb = np.einsum("rn,rnk->rk", p, T)
+    gr = T[np.arange(d.R), c] - xb
+    Hr = -(np.einsum("rn,rnk,rnl->rkl", p, T, T) - np.einsum("rk,rl->rkl", xb, xb))
+    K = T.shape[2]; nd = dinv.max() + 1
+    gd = np.zeros((nd, K)); Hd = np.zeros((nd, K, K))
+    np.add.at(gd, dinv, gr); np.add.at(Hd, dinv, Hr)
+    out = np.empty(len(rb_days))
+    for i, w in enumerate(rb_days):
+        g = w @ gd - lam * th; H = np.tensordot(w, Hd, 1) - lam * np.eye(K)
+        out[i] = (th - np.linalg.solve(H, g))[-1]
+    return out
+
+
+def winner_ll(T, d, idx, th):
+    U = np.where(d.mask[idx], T[idx] @ th, -np.inf)
+    mx = U.max(1, keepdims=True); lse = np.log(np.exp(U - mx).sum(1)) + mx[:, 0]
+    c = d.order[idx, 0]
+    return U[np.arange(len(idx)), c] - lse
+
+
+def analyze(D, fake=None, progress=None):
+    d = Data(D, fake)
+    allr = np.arange(d.R)
+    ud, dinv = np.unique(d.day, return_inverse=True)
+    rng = np.random.default_rng(SEED_B); rbd = [np.bincount(rng.choice(len(ud), len(ud), replace=True).astype(np.intp), minlength=len(ud)).astype(float) for _ in range(NB)]   # 1.2: Pyodide（32ビット）のため intp に直す
+    rng = np.random.default_rng(SEED_CV); perm = rng.permutation(len(ud)); fold_day = np.zeros(len(ud), int); fold_day[perm] = np.arange(len(ud)) % 5
+    fold = fold_day[dinv]
+    base_cv = np.zeros(d.R)
+    for k in range(5):
+        tr, te = np.where(fold != k)[0], np.where(fold == k)[0]
+        base_cv[te] = winner_ll(d.P, d, te, fit(d.P, d, tr))
+    th_base = fit(d.P, d, allr)
+    res = {"対象": {"レース": int(d.R), "馬": int(len(d.D)), "開催日": int(len(ud))}, "人気の係数（市場だけ）": [float(x) for x in th_base], "列": {}}
+    for j, c in enumerate(COLS):
+        if progress:
+            progress(j, c)
+        T = np.concatenate([d.P, d.x(c)], axis=2)
+        th = fit(T, d, allr, th0=np.r_[th_base, 0.0])
+        gs = onestep_boot(T, d, th, rbd, dinv)
+        lo, hi = np.percentile(gs, [2.5, 97.5])
+        cv = np.zeros(d.R)
+        for k in range(5):
+            tr, te = np.where(fold != k)[0], np.where(fold == k)[0]
+            cv[te] = winner_ll(T, d, te, fit(T, d, tr, th0=np.r_[th_base, 0.0]))
+        dll = float((cv - base_cv).mean())
+        th3 = fit(T, d, allr, th0=np.r_[th_base, 0.0], stages=3)
+        cand = bool((lo > 0 or hi < 0) and dll >= 0.001)
+        res["列"][c] = {"γ": float(th[-1]), "lo": float(lo), "hi": float(hi), "ΔLL_cv": dll, "γ_上位3頭": float(th3[-1]), "候補": cand}
+    res["候補"] = [c for c in COLS if res["列"][c]["候補"]]
+    # 参考: 候補の列の、人気の帯ごとの回収率（列の上位1/3と下位1/3。偽のデータでは出さない）
+    if fake is None:
+        R = {}
+        DD = d.D.copy(); DD["tan"] = pd.to_numeric(DD.tan_pay, errors="coerce").fillna(0); DD["fuku"] = pd.to_numeric(DD.fuku_pay, errors="coerce").fillna(0)
+        for c in res["候補"]:
+            v = pd.to_numeric(DD[c], errors="coerce").fillna(0)
+            R[c] = {}
+            for lab, a, b in BANDS:
+                m = (DD["pop"] >= a) & (DD["pop"] <= b)
+                if m.sum() < 30:
+                    continue
+                q1, q2 = np.quantile(v[m], [1 / 3, 2 / 3])
+                lo_, hi_ = m & (v <= q1), m & (v >= q2)
+                f = lambda s: {"頭数": int(s.sum()), "単勝": float(100 * DD.tan[s].mean() / 100) if s.sum() else None, "複勝": float(100 * DD.fuku[s].mean() / 100) if s.sum() else None}
+                R[c][lab] = {"上位1/3": f(hi_), "下位1/3": f(lo_)}
+        res["参考 回収率"] = R
+    res["fake"] = fake
+    return res
+
+
+def report(res, fakes):
+    f4 = lambda x: "%+.4f" % x
+    L = ["# 市場の取りこぼしの探索（第1群）結果", "",
+         "- **探索です。第1群は M1 を作ったデータで、M1 の列の効きは楽観に寄ります。49列を調べたので、偶然に区間が 0 を外れる列もありえます。**",
+         "- 計画: 自分用_市場の取りこぼし_探索計画.md（登録77）。計算は resid_core 1.2。",
+         "- 対象: 通常のレースで勝ち馬が1頭のもの %d レース・%d 頭・%d 開催日。市場の物差しは確定の人気（1番人気を基準に、2〜9番人気と10番人気以下の係数）。" % (res["対象"]["レース"], res["対象"]["馬"], res["対象"]["開催日"]),
+         "- 偽のデータ（着順を並べ替えた3組）の候補の数: " + "、".join("種%s %d列" % (k, len(v["候補"])) for k, v in fakes.items()) + ("（止める線 2列以上に**当たった**）" if any(len(v["候補"]) >= 2 for v in fakes.values()) else "（止める線 2列以上に当たらない）"), "",
+         "## 1. 人気の係数（市場だけ。1番人気が 0）", "",
+         "- " + "、".join("%s %+.2f" % (("%d番人気" % (i + 2)) if i < 8 else "10番人気以下", t) for i, t in enumerate(res["人気の係数（市場だけ）"])), "",
+         "## 2. 列ごとの結果（γ は市場の見立てを固定したときの効き。正なら、その列が大きい馬ほど同じ人気の中でよく勝つ）", "",
+         "| 列 | γ | 95%区間 | 交差検証の ΔLL | 上位3頭 PL の γ（参考） | 候補 |", "|---|---|---|---|---|---|"]
+    for c, v in res["列"].items():
+        L.append("| %s | %s | [%s, %s] | %s | %s | %s |" % (c, f4(v["γ"]), f4(v["lo"]), f4(v["hi"]), f4(v["ΔLL_cv"]), f4(v["γ_上位3頭"]), "**候補**" if v["候補"] else ""))
+    L += ["", "## 3. 候補", "", "- " + ("、".join(res["候補"]) if res["候補"] else "なし（γ の区間が 0 を外れ、かつ交差検証の ΔLL ≥ +0.001 の列は無い）")]
+    if res.get("参考 回収率"):
+        L += ["", "## 4. 参考: 候補の列の、人気の帯ごとの回収率（列の上位1/3 と 下位1/3。判定には使わない）", "",
+              "| 列 | 人気の帯 | 上位1/3 頭数 | 単勝 | 複勝 | 下位1/3 頭数 | 単勝 | 複勝 |", "|---|---|---|---|---|---|---|---|"]
+        for c, B in res["参考 回収率"].items():
+            for lab, v in B.items():
+                h, l = v["上位1/3"], v["下位1/3"]
+                L.append("| %s | %s | %d | %.1f%% | %.1f%% | %d | %.1f%% | %.1f%% |" % (c, lab, h["頭数"], h["単勝"], h["複勝"], l["頭数"], l["単勝"], l["複勝"]))
+    L += ["", "## 5. 読み方の注意", "",
+          "- 物差しは人気の順位だけなので、同じ人気の中の差（本命寄り・穴寄り）は見えない。その差と相関する列は、取りこぼしでなくても γ が出うる。",
+          "- 候補が出ても、オッズを使った物差し（第2群・フォワード）で確かめるまでは、取りこぼしとは言えない。"]
+    return "\n".join(L) + "\n"
+
+
+def run(csv_path, fake_only=False):
+    """ページ用。fake_only=True なら偽のデータ3組だけ、False なら偽のデータ3組と本番。戻り値: JSON の文字"""
+    D = pd.read_csv(csv_path, dtype=str, encoding="utf-8-sig", keep_default_na=False)
+    fakes = {s: analyze(D, fake=s) for s in (1, 2, 3)}
+    stop = any(len(v["候補"]) >= 2 for v in fakes.values())
+    out = {"fakes": {s: {"候補": v["候補"], "対象": v["対象"]} for s, v in fakes.items()}, "stop": stop}
+    if fake_only or stop:
+        return json.dumps(out, ensure_ascii=False)
+    res = analyze(D)
+    out["real"] = res; out["md"] = report(res, fakes)
+    return json.dumps(out, ensure_ascii=False)
+</script>
+<script type="text/plain" id="py-odds_resid_core"># -*- coding: utf-8 -*-
+"""odds_resid_core 1 (2026-11-20)  市場の取りこぼし（オッズの物差し）の探索の計算（自分用_オッズの物差し_探索計画.md）。
+ページ v50_odds_resid.html に埋め込み、手元の odds_resid.py からも呼ぶ。numpy と pandas と resid_core 1.2（そのまま使う）だけ。
+入力: 第1群の材料（v50_resid_data_g1.html の出力。記録78 と同じ 017310f2…）、第2群の材料（v50_odds_data_g2.html の出力 55bdf786…。着順・払戻は入っていない）。
+式（両方の群で同じ形）: レースの中で p_i ∝ exp(人気の印〔1番人気が基準、2〜9番人気と10番人気以下〕 + 係数·x_i)。x は resid_core と同じ（44列は材料の値、合計・小計の5列はレースの中で z）。L2 0.01、ニュートン法。
+  b（第2群）: 答えは市場の確率 q_i =(1/オッズ_i)/Σ(1/オッズ)（通常のレースで M1 の値がある馬の中で足して1）。Σ q log p を最大にする。レースの重みはどれも1。
+  γ（第1群）: 答えは勝ち馬（resid_core と同じ。記録78 の γ と同じ値になる）。
+区間: b は第2群の開催日のブートストラップ（2000回、種 20261130）、γ は第1群の開催日のブートストラップ（resid_core と同じ組、種 20261128）。どちらも全体の推定値から1歩のニュートン法。
+  γ − b は回ごとに組にして引く。
+交差検証（第1群、開催日の5分割、種 20261129）: A = 人気の印 + b·x（b は第2群の値に固定。人気の印だけ当てはめる）、B = 人気の印 + γ·x。ΔLL = B − A（1レースあたりの勝ち馬の対数尤度）。
+候補: γ − b の95%区間が 0 を外れ、かつ ΔLL ≥ +0.001。主は記録78 の候補10列、残りの39列は記録だけ（判定しない）。
+精度の決まり: 主の10列で SE(b)/SE(γ − b) の中央値が 0.7 を超えたら「第2群だけでは精度不足」。
+偽のデータ: 「取りこぼしが無い」世界の勝ち馬を作る。主の列ごとに、第1群の各レースで、第2群で当てはめた式（人気の印の係数と b）の確率
+  p_i ∝ exp(人気の印 + b·x_i) に従って勝ち馬を1頭引く（種 1・2・3。列ごとに種 ×1000 + 列の番号）。この世界では γ = b が本当の値。
+  主の10列で候補が2つ以上なら止める。（計画の案では「第1群の着順の並べ替え」だったが、それでは本当の値が γ = 0 になり、b ≠ 0 の列が
+  いつも候補に出てしまうので、登録の前に直した。）"""
+import json
+import numpy as np, pandas as pd
+import resid_core as rc
+
+SEED_B2 = 20261130
+MAIN = ["c1", "c2", "c4", "走の数", "能試の数", "牝", "m3_total", "m3_ability", "m3_today", "m2_total"]
+LAM = 0.01
+
+
+class G2:
+    """第2群の材料を、resid_core.Data と同じ形（R×N×K）にする。答えは市場の確率 Q（R×N）"""
+    def __init__(self, D):
+        D = D[(D["mode"] == "通常") & (D["m3_total"] != "")].copy()
+        D["pop"] = pd.to_numeric(D["pop"], errors="coerce"); D["odds"] = pd.to_numeric(D["odds"], errors="coerce")
+        bad = set(D[D["pop"].isna() | D["odds"].isna() | (D["odds"] <= 0)].race_id)
+        D = D[~D.race_id.isin(bad)].sort_values(["race_id", "num"], key=lambda s: s if s.name == "race_id" else pd.to_numeric(s)).reset_index(drop=True)
+        for c in rc.TOTALS:
+            v = pd.to_numeric(D[c], errors="coerce").fillna(0)
+            g = v.groupby(D.race_id); sd = g.transform("std", ddof=0)
+            D[c] = np.where(sd > 0, (v - g.transform("mean")) / sd.replace(0, 1), 0.0)
+        self.D = D; self.dropped = len(bad)
+        self.ids, inv = np.unique(D.race_id.values, return_inverse=True)
+        self.R = len(self.ids); pos = D.groupby("race_id").cumcount().values
+        self.N = int(pos.max()) + 1; self.inv, self.pos = inv, pos
+        self.mask = np.zeros((self.R, self.N), bool); self.mask[inv, pos] = True
+        cat = np.clip(D["pop"].values.astype(int), 1, 10)
+        P = np.zeros((len(D), 9)); r = cat >= 2; P[np.where(r)[0], cat[r] - 2] = 1.0
+        self.P = self._t(P)
+        u = 1.0 / D["odds"].values; q = u / pd.Series(u).groupby(D.race_id.values).transform("sum").values
+        self.Q = np.zeros((self.R, self.N)); self.Q[inv, pos] = q
+        self.day = D.groupby("race_id").date.first().loc[self.ids].values.astype(str)
+
+    def _t(self, X):
+        T = np.zeros((self.R, self.N, X.shape[1])); T[self.inv, self.pos] = X
+        return T
+
+    def x(self, c):
+        return self._t(pd.to_numeric(self.D[c], errors="coerce").fillna(0).values[:, None])
+
+
+def _soft_terms(T, mask, Q, th):
+    """レースごとの Σ q log p の値・勾配・ヘッセ行列（どれもレースごとに返す）"""
+    U = np.where(mask, T @ th, -np.inf)
+    mx = U.max(1, keepdims=True); e = np.where(mask, np.exp(U - mx), 0.0); Z = e.sum(1, keepdims=True); p = e / Z
+    lse = np.log(Z[:, 0]) + mx[:, 0]
+    llr = (Q * np.where(mask, U, 0.0)).sum(1) - lse * Q.sum(1)
+    xb = np.einsum("rn,rnk->rk", p, T)
+    gr = np.einsum("rn,rnk->rk", Q, T) - xb * Q.sum(1)[:, None]
+    Hr = -(np.einsum("rn,rnk,rnl->rkl", p, T, T) - np.einsum("rk,rl->rkl", xb, xb)) * Q.sum(1)[:, None, None]
+    return llr, gr, Hr
+
+
+def fit_soft(T, g, it=30, tol=1e-10, th0=None):
+    K = T.shape[2]; th = np.zeros(K) if th0 is None else th0.copy()
+    for _ in range(it):
+        _, gr, Hr = _soft_terms(T, g.mask, g.Q, th)
+        gg = gr.sum(0) - LAM * th; H = Hr.sum(0) - LAM * np.eye(K)
+        step = np.linalg.solve(H, gg); th = th - step
+        if np.abs(step).max() < tol:
+            break
+    return th
+
+
+def boot_soft(T, g, th, rbd, dinv):
+    _, gr, Hr = _soft_terms(T, g.mask, g.Q, th)
+    K = T.shape[2]; nd = dinv.max() + 1
+    gd = np.zeros((nd, K)); Hd = np.zeros((nd, K, K)); np.add.at(gd, dinv, gr); np.add.at(Hd, dinv, Hr)
+    out = np.empty(len(rbd))
+    for i, w in enumerate(rbd):
+        gg = w @ gd - LAM * th; H = np.tensordot(w, Hd, 1) - LAM * np.eye(K)
+        out[i] = (th - np.linalg.solve(H, gg))[-1]
+    return out
+
+
+def fit_offset(P, off, d, idx, it=30, tol=1e-10):
+    """第1群: 勝ち馬の条件付きロジットで、人気の印だけを当てはめる（off = b·x を足したまま）"""
+    Pt, mask, c = P[idx], d.mask[idx], d.order[idx, 0]; O = off[idx]
+    K = P.shape[2]; th = np.zeros(K); rr = np.arange(len(idx))
+    for _ in range(it):
+        U = np.where(mask, Pt @ th + O, -np.inf)
+        mx = U.max(1, keepdims=True); e = np.where(mask, np.exp(U - mx), 0.0); p = e / e.sum(1, keepdims=True)
+        xb = np.einsum("rn,rnk->rk", p, Pt)
+        g = (Pt[rr, c] - xb).sum(0) - LAM * th
+        H = -(np.einsum("rn,rnk,rnl->kl", p, Pt, Pt) - np.einsum("rk,rl->kl", xb, xb)) - LAM * np.eye(K)
+        step = np.linalg.solve(H, g); th = th - step
+        if np.abs(step).max() < tol:
+            break
+    return th
+
+
+def ll_offset(P, off, d, idx, th):
+    U = np.where(d.mask[idx], P[idx] @ th + off[idx], -np.inf)
+    mx = U.max(1, keepdims=True); lse = np.log(np.exp(U - mx).sum(1)) + mx[:, 0]
+    return U[np.arange(len(idx)), d.order[idx, 0]] - lse
+
+
+def g2_side(D2, cols):
+    g = G2(D2)
+    ud, dinv = np.unique(g.day, return_inverse=True)
+    rng = np.random.default_rng(SEED_B2)
+    rbd = [np.bincount(rng.choice(len(ud), len(ud), replace=True).astype(np.intp), minlength=len(ud)).astype(float) for _ in range(rc.NB)]
+    th0 = fit_soft(g.P, g)
+    out = {"対象": {"レース": int(g.R), "馬": int(len(g.D)), "開催日": int(len(ud)), "除いたレース": int(g.dropped)},
+           "人気の係数（市場の確率）": [float(x) for x in th0], "列": {}}
+    for c in cols:
+        T = np.concatenate([g.P, g.x(c)], axis=2)
+        th = fit_soft(T, g, th0=np.r_[th0, 0.0])
+        out["列"][c] = {"b": float(th[-1]), "th": th, "boot": boot_soft(T, g, th, rbd, dinv)}
+    # 参考: 人気の帯ごとの、m3_total の上位1/3・下位1/3 の平均オッズ（判定には使わない）
+    D = g.D; ref = {}
+    for lab, a, bb in rc.BANDS:
+        m = (D["pop"] >= a) & (D["pop"] <= bb)
+        if m.sum() < 30:
+            continue
+        v = D.m3_total[m]; q1, q2 = np.quantile(v, [1 / 3, 2 / 3])
+        ref[lab] = {"上位1/3": [int((v >= q2).sum()), float(D.odds[m][v >= q2].mean())], "下位1/3": [int((v <= q1).sum()), float(D.odds[m][v <= q1].mean())]}
+    out["参考 平均オッズ"] = ref
+    return out
+
+
+def fake_winners(d, T, th, seed):
+    """p ∝ exp(T·th) に従って、各レースの勝ち馬を1頭引く"""
+    U = np.where(d.mask, T @ th, -np.inf); e = np.exp(U - U.max(1, keepdims=True)); p = e / e.sum(1, keepdims=True)
+    u = np.random.default_rng(seed).random(d.R)
+    return np.minimum((p.cumsum(1) < u[:, None]).sum(1), d.mask.sum(1) - 1)
+
+
+def g1_side(D1, cols, B, fake=None):
+    d0 = rc.Data(D1)
+    allr = np.arange(d0.R)
+    ud, dinv = np.unique(d0.day, return_inverse=True)
+    rng = np.random.default_rng(rc.SEED_B)
+    rbd = [np.bincount(rng.choice(len(ud), len(ud), replace=True).astype(np.intp), minlength=len(ud)).astype(float) for _ in range(rc.NB)]
+    rng = np.random.default_rng(rc.SEED_CV); perm = rng.permutation(len(ud)); fd = np.zeros(len(ud), int); fd[perm] = np.arange(len(ud)) % 5
+    fold = fd[dinv]
+    out = {"対象": {"レース": int(d0.R), "馬": int(len(d0.D)), "開催日": int(len(ud))}, "列": {}}
+    for j, c in enumerate(cols):
+        X = d0.x(c); T = np.concatenate([d0.P, X], axis=2)
+        d = d0
+        if fake is not None:   # 取りこぼしの無い世界の勝ち馬（第2群の式から引く）
+            import copy
+            d = copy.copy(d0); d.order = d0.order.copy(); d.order[:, 0] = fake_winners(d0, T, B["列"][c]["th"], fake * 1000 + rc.COLS.index(c))
+        th_base = rc.fit(d.P, d, allr)
+        th = rc.fit(T, d, allr, th0=np.r_[th_base, 0.0])
+        gs = rc.onestep_boot(T, d, th, rbd, dinv)
+        off = B["列"][c]["b"] * X[:, :, 0]
+        cvA, cvB = np.zeros(d.R), np.zeros(d.R)
+        for k in range(5):
+            tr, te = np.where(fold != k)[0], np.where(fold == k)[0]
+            cvA[te] = ll_offset(d.P, off, d, te, fit_offset(d.P, off, d, tr))
+            cvB[te] = rc.winner_ll(T, d, te, rc.fit(T, d, tr, th0=np.r_[th_base, 0.0]))
+        out["列"][c] = {"γ": float(th[-1]), "boot": gs, "ΔLL_cv": float((cvB - cvA).mean())}
+    return out
+
+
+def combine(A, B, cols):
+    res = {}
+    for c in cols:
+        gb, bb = A["列"][c]["boot"], B["列"][c]["boot"]
+        df = gb - bb
+        lo, hi = np.percentile(df, [2.5, 97.5])
+        blo, bhi = np.percentile(bb, [2.5, 97.5]); glo, ghi = np.percentile(gb, [2.5, 97.5])
+        dll = A["列"][c]["ΔLL_cv"]
+        res[c] = {"b": B["列"][c]["b"], "b_lo": float(blo), "b_hi": float(bhi), "γ": A["列"][c]["γ"], "γ_lo": float(glo), "γ_hi": float(ghi),
+                  "差": A["列"][c]["γ"] - B["列"][c]["b"], "差_lo": float(lo), "差_hi": float(hi), "ΔLL_cv": dll,
+                  "SE_b": float(bb.std()), "SE_差": float(df.std()), "主": c in MAIN, "候補": bool(c in MAIN and (lo > 0 or hi < 0) and dll >= 0.001)}
+    return res
+
+
+def run(p1, p2, fake_only=False, progress=None):
+    """ページ用。戻り値: JSON の文字"""
+    D1 = pd.read_csv(p1, dtype=str, encoding="utf-8-sig", keep_default_na=False)
+    D2 = pd.read_csv(p2, dtype=str, encoding="utf-8-sig", keep_default_na=False)
+    assert not any(c in D2.columns for c in ("fin", "tan_pay", "fuku_pay")), "第2群の材料に着順・払戻の欄がある"
+    cols = rc.COLS
+    B = g2_side(D2, cols)
+    if progress: progress("第2群の b")
+    fakes = {}
+    for s in (1, 2, 3):
+        A = g1_side(D1, MAIN, B, fake=s); r = combine(A, B, MAIN)
+        fakes[s] = [c for c in MAIN if r[c]["候補"]]
+        if progress: progress("偽のデータ %d" % s)
+    stop = any(len(v) >= 2 for v in fakes.values())
+    out = {"fakes": fakes, "stop": stop, "g2": {"対象": B["対象"]}}
+    if fake_only or stop:
+        return json.dumps(out, ensure_ascii=False)
+    A = g1_side(D1, cols, B)
+    res = combine(A, B, cols)
+    ratio = float(np.median([res[c]["SE_b"] / res[c]["SE_差"] for c in MAIN]))
+    out.update({"real": res, "g1": {"対象": A["対象"]}, "g2": {"対象": B["対象"], "人気の係数": B["人気の係数（市場の確率）"], "参考 平均オッズ": B["参考 平均オッズ"]},
+                "候補": [c for c in MAIN if res[c]["候補"]], "精度の比": ratio, "精度不足": ratio > 0.7})
+    out["md"] = report(out)
+    return json.dumps(out, ensure_ascii=False)
+
+
+def report(o):
+    f = lambda x: "%+.3f" % x
+    g1, g2 = o["g1"]["対象"], o["g2"]["対象"]
+    L = ["# 市場の取りこぼし（オッズの物差し）の探索 結果", "",
+         "- **探索です。第1群は M1 を作ったデータで、γ は楽観に寄ります。** 計画: 自分用_オッズの物差し_探索計画.md。計算は odds_resid_core 1（resid_core 1.2 を使う）。",
+         "- 第1群（γ）: %d レース・%d 頭・%d 開催日。第2群（b。着順は使わない）: %d レース・%d 頭・%d 開催日（除いたレース %d）。" % (g1["レース"], g1["馬"], g1["開催日"], g2["レース"], g2["馬"], g2["開催日"], g2["除いたレース"]),
+         "- 偽のデータ（取りこぼしの無い世界: 第2群の式から第1群の勝ち馬を引いた3組）の主の候補の数: " + "、".join("種%s %d列" % (k, len(v)) for k, v in o["fakes"].items()) + ("（止める線 2列以上に**当たった**）" if o["stop"] else "（止める線 2列以上に当たらない）"), "",
+         "## 1. 判定", "",
+         "- **オッズの物差しでの取りこぼしの候補（主の10列）: " + ("、".join(o["候補"]) if o["候補"] else "なし") + "**",
+         "- 精度の決まり: SE(b)/SE(γ − b) の中央値 %.2f → %s" % (o["精度の比"], "**第2群だけでは精度不足**（第3群のオッズを足すかはユーザーが決める）" if o["精度不足"] else "0.7 以下（第3群は開けない）"), "",
+         "## 2. 列ごとの値（b = 市場の織り込み〔第2群〕、γ = 実際の効き〔第1群〕、γ − b = 取りこぼしの大きさ。正なら市場がその列を軽く見すぎ）", "",
+         "| 列 | 主 | b | b の区間 | γ | γ の区間 | γ − b | γ − b の区間 | ΔLL（B − A） | SE(b)/SE(γ−b) | 候補 |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+    order = MAIN + [c for c in o["real"] if c not in MAIN]
+    for c in order:
+        v = o["real"][c]
+        L.append("| %s | %s | %s | [%s, %s] | %s | [%s, %s] | %s | [%s, %s] | %+.4f | %.2f | %s |" % (
+            c, "主" if v["主"] else "", f(v["b"]), f(v["b_lo"]), f(v["b_hi"]), f(v["γ"]), f(v["γ_lo"]), f(v["γ_hi"]), f(v["差"]), f(v["差_lo"]), f(v["差_hi"]),
+            v["ΔLL_cv"], v["SE_b"] / v["SE_差"], "**候補**" if v["候補"] else ""))
+    L += ["", "## 3. 参考: 第2群の人気の係数（市場の確率で当てはめ。1番人気が 0）", "",
+          "- " + "、".join("%s %+.2f" % (("%d番人気" % (i + 2)) if i < 8 else "10番人気以下", t) for i, t in enumerate(o["g2"]["人気の係数"])), "",
+          "## 4. 参考: 第2群の人気の帯ごとの、m3_total の上位1/3・下位1/3 の平均単勝オッズ（判定には使わない）", "",
+          "| 人気の帯 | 上位1/3 頭数 | 平均オッズ | 下位1/3 頭数 | 平均オッズ |", "|---|---|---|---|---|"]
+    for lab, v in o["g2"]["参考 平均オッズ"].items():
+        L.append("| %s | %d | %.1f | %d | %.1f |" % (lab, v["上位1/3"][0], v["上位1/3"][1], v["下位1/3"][0], v["下位1/3"][1]))
+    L += ["", "## 5. 読み方の注意", "",
+          "- 市場の確率がおおむね当たっている、と置いている。同じ人気の中での市場の偏りは γ − b に混ざりうる。",
+          "- 第1群と第2群は時期が違う（第1群 2025-07〜2026-08、第2群 2026-09〜10）。市場の織り込み方が時期で変わっていれば、その差も γ − b に入る。",
+          "- 副の39列は記録だけで、判定しない。"]
+    return "\n".join(L) + "\n"
+</script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const WANT = { 1: "017310f2c82346e1d81546c308e3c94651b52b3eac818d6f783dac35bf5e5bba", 2: "55bdf78650973b9d59222d97cd1b12c3867ce5f739f2452f10b26f876bfbe23c" };
+let py = null, J = null, ok = { 1: false, 2: false };
+const refresh = () => { $("bRun").disabled = !(py && ok[1] && ok[2]); };
+(async () => { try { py = await loadPyodide(); await py.loadPackage(["numpy", "pandas"]); py.FS.mkdirTree("/w");
+  for (const n of ["resid_core", "odds_resid_core"]) py.FS.writeFile("/w/" + n + ".py", $("py-" + n).textContent);
+  py.runPython("import sys\nsys.path.insert(0,'/w')\nimport odds_resid_core");
+  $("st").innerHTML = '<span class="ok">準備ができました。</span>'; refresh(); } catch (e) { $("st").innerHTML = '<span class="bad">準備に失敗: ' + e + '</span>'; } })();
+[1, 2].forEach(k => $("f" + k).addEventListener("change", async e => { const b = new Uint8Array(await e.target.files[0].arrayBuffer());
+  const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", b))].map(x => x.toString(16).padStart(2, "0")).join("");
+  ok[k] = h === WANT[k];
+  $("s" + k).innerHTML = ok[k] ? '<span class="ok">登録した材料です（' + h.slice(0, 8) + '…）。</span>' : '<span class="bad">登録した材料と SHA-256 が違います（' + h.slice(0, 8) + '…）。</span>';
+  if (ok[k]) { while (!py) await new Promise(r => setTimeout(r, 300)); py.FS.writeFile("/w/m" + k + ".csv", b); } refresh(); }));
+$("bRun").onclick = async () => {
+  $("bRun").disabled = true; const t0 = performance.now();
+  $("st").textContent = "計算しています（数分かかります）…"; await new Promise(r => setTimeout(r, 50));
+  try { J = JSON.parse(py.runPython("odds_resid_core.run('/w/m1.csv', '/w/m2.csv')")); }
+  catch (e){ $("st").innerHTML = '<span class="bad">計算で止まりました: ' + e + '</span>'; $("bRun").disabled = false; return; }
+  const fk = Object.entries(J.fakes).map(([s, v]) => "種" + s + " " + v.length + "列").join("、");
+  if (J.stop){ $("out").innerHTML = '<p class="bad">偽のデータで主の候補が2列以上出たので、本番を流さずに止めました（' + fk + '）。Claude に伝えてください。</p>'; $("st").textContent = ""; $("bRun").disabled = false; return; }
+  $("out").innerHTML = '<p>偽のデータの主の候補: ' + fk + '（止める線 2列以上に当たらない）。本番の候補: <b>' + (J["候補"].length ? J["候補"].join("、") : "なし") + '</b>。精度の比 ' + J["精度の比"].toFixed(2) + (J["精度不足"] ? '（<b>第2群だけでは精度不足</b>）' : '（0.7 以下）') + '</p><pre>' + J.md.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])) + '</pre>';
+  $("st").innerHTML = '<span class="ok">終わりました（' + ((performance.now() - t0) / 1000).toFixed(0) + '秒）。「結果を保存」と「詳しい値を保存」のファイルを Claude に渡してください。</span>';
+  $("bMd").disabled = false; $("bJs").disabled = false; $("bRun").disabled = false;
+};
+const save = (text, name, type) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); };
+$("bMd").onclick = () => save(J.md, "市場の取りこぼし_オッズの物差し_結果.md", "text/markdown");
+$("bJs").onclick = () => save(JSON.stringify(J, null, 1), "市場の取りこぼし_オッズの物差し_詳しい値.json", "application/json");
+</script></body></html>
