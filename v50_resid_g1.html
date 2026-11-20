@@ -10,9 +10,9 @@ pre{background:#f4f6fa;padding:8px;white-space:pre-wrap;font-size:.8rem}.warn{ba
 <h2>材料の CSV（市場の取りこぼし_材料_第1群.csv）</h2><input type="file" id="fC" accept=".csv"> <span id="cSt" class="note"></span>
 <p><button id="bRun" disabled>計算する（偽のデータ3組 → 本番）</button> <button id="bMd" disabled>結果を保存（.md）</button> <button id="bJs" disabled>詳しい値を保存（.json）</button></p>
 <div id="st" class="note">部品を読み込んでいます…</div><div id="out"></div>
-<p class="note">埋め込んだもの: resid_core.py a84a5863…。版: resid-g1 1 (2026-11-20)。計算はこのブラウザの中だけで行い、どこにも送らない。数分かかります。</p>
+<p class="note">埋め込んだもの: resid_core.py 44dce58e…。版: resid-g1 1 (2026-11-20)。計算はこのブラウザの中だけで行い、どこにも送らない。数分かかります。</p>
 <script type="text/plain" id="py-resid_core"># -*- coding: utf-8 -*-
-"""resid_core 1.1 (2026-11-20。1.1 は、材料の中の走らなかった馬の行〔結果のページに取消・除外と載る馬。人気・着順・M1 の値が空〕を先に外すようにした。1 ではその馬のいるレースがまるごと除かれた)  市場の取りこぼしの探索（第1群。自分用_市場の取りこぼし_探索計画.md・登録77）の計算。
+"""resid_core 1.2 (2026-11-20。1.2 は Pyodide〔32ビット〕で np.bincount が int64 を受け付けないので intp に直した。計算は同じ。1.1 は、材料の中の走らなかった馬の行〔結果のページに取消・除外と載る馬。人気・着順・M1 の値が空〕を先に外すようにした。1 ではその馬のいるレースがまるごと除かれた)  市場の取りこぼしの探索（第1群。自分用_市場の取りこぼし_探索計画.md・登録77）の計算。
 ページ v50_resid_g1.html に埋め込み、手元の resid_g1.py からも呼ぶ。numpy と pandas だけ。
 入力: 材料の CSV（v50_resid_data_g1.html の出力。data_core 1）。
 対象: 材料のうち通常のレース（混在は M1 の値が無い馬がいるので除く）で、着順の数が 1 の馬がちょうど1頭いるレース。
@@ -138,7 +138,7 @@ def analyze(D, fake=None, progress=None):
     d = Data(D, fake)
     allr = np.arange(d.R)
     ud, dinv = np.unique(d.day, return_inverse=True)
-    rng = np.random.default_rng(SEED_B); rbd = [np.bincount(rng.choice(len(ud), len(ud), replace=True), minlength=len(ud)).astype(float) for _ in range(NB)]
+    rng = np.random.default_rng(SEED_B); rbd = [np.bincount(rng.choice(len(ud), len(ud), replace=True).astype(np.intp), minlength=len(ud)).astype(float) for _ in range(NB)]   # 1.2: Pyodide（32ビット）のため intp に直す
     rng = np.random.default_rng(SEED_CV); perm = rng.permutation(len(ud)); fold_day = np.zeros(len(ud), int); fold_day[perm] = np.arange(len(ud)) % 5
     fold = fold_day[dinv]
     base_cv = np.zeros(d.R)
@@ -187,7 +187,7 @@ def report(res, fakes):
     f4 = lambda x: "%+.4f" % x
     L = ["# 市場の取りこぼしの探索（第1群）結果", "",
          "- **探索です。第1群は M1 を作ったデータで、M1 の列の効きは楽観に寄ります。49列を調べたので、偶然に区間が 0 を外れる列もありえます。**",
-         "- 計画: 自分用_市場の取りこぼし_探索計画.md（登録77）。計算は resid_core 1.1。",
+         "- 計画: 自分用_市場の取りこぼし_探索計画.md（登録77）。計算は resid_core 1.2。",
          "- 対象: 通常のレースで勝ち馬が1頭のもの %d レース・%d 頭・%d 開催日。市場の物差しは確定の人気（1番人気を基準に、2〜9番人気と10番人気以下の係数）。" % (res["対象"]["レース"], res["対象"]["馬"], res["対象"]["開催日"]),
          "- 偽のデータ（着順を並べ替えた3組）の候補の数: " + "、".join("種%s %d列" % (k, len(v["候補"])) for k, v in fakes.items()) + ("（止める線 2列以上に**当たった**）" if any(len(v["候補"]) >= 2 for v in fakes.values()) else "（止める線 2列以上に当たらない）"), "",
          "## 1. 人気の係数（市場だけ。1番人気が 0）", "",
