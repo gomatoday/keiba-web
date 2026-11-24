@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.10 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.11 (2026-11-24)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -3495,7 +3495,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.10 (2026-11-24)";
+const VERSION = "m1v3-form-1.11 (2026-11-24)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3598,7 +3598,7 @@ function formHtml(J, key){
     let a = x.a, b = x.b, c = c3(x);
     if (x.kind === "単勝" || x.kind === "複勝"){ b = ""; c = ""; }                       // 1着だけ
     else if (x.kind === "枠連" || x.kind === "枠単"){ a = wk[x.a] ? wk[x.a] + "枠" : ""; b = wk[x.b] ? wk[x.b] + "枠" : ""; c = ""; }   // 枠番号
-    else if (x.kind === "ワイド"){ c = ""; }                                                // 3着なし
+    else if (x.kind === "ワイド" || x.kind === "馬連" || x.kind === "馬単"){ c = ""; }     // 3着なし（買い目は1着・2着だけ、ワイドは表示だけ）
     h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + a + '</td><td style="text-align:center">' + b + '</td><td class="l">' + c + '</td></tr>'; });
   h += '</tbody></table></div>';
   if (!J.odds) h += '<p class="note bad">oddsJS が無いので、3着（市場人気1〜5位）を出せません。</p>';
