@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.6 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.7 (2026-11-24)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -64,7 +64,7 @@ tr.top td{background:var(--hi)}
 <li><b>格と対戦</b>: 格R1 と 対戦H1 の4列（値と、記録が無い印）による点。</li>
 <li><b>格R1</b>: 前5走のうち南関東の普通の走（頭数2以上）の格の番号（OP=0、A1=1〜C3=8。題名から読む）の重み付き平均（重み 0.7）。<b>小さいほど格が上</b>。南関東の普通の走に格の番号が無い馬は「記録なし」。</li>
 <li><b>対戦H1</b>: 前5走で今回一緒に走る馬と同じレースに出たときの（先着 − 先着された）÷ 対戦の回数。−1〜+1 で、+1 は今回の相手に毎回先着。今回の相手と走ったことが無い馬は「対戦なし」。</li>
-<li>網掛け: M1順位〜対戦H1 の列ごとに、良い値ほど赤、悪い値ほど青（M1順位・市場人気・単勝オッズ・格R1 は小さいほど良い、ほかは大きいほど良い。単勝オッズは対数の目盛り）。「記録なし」「対戦なし」は網掛けしない。</li>
+<li>網掛け: M1順位〜対戦H1 の列ごとに、良い値ほど赤、悪い値ほど青（M1順位・市場人気・単勝オッズ・格R1 は小さいほど良い、ほかは大きいほど良い）。色の濃さは値の大きさではなく列の中の順位で決める（いちばん良い馬がいちばん赤、まん中の順位が白、いちばん悪い馬がいちばん青。同じ値は同じ色）。「記録なし」「対戦なし」は網掛けしない。</li>
 </ul>
 <p class="note">表の見出しを押すと並べ替えます（もう一度押すと逆順。並べ替えた列に ▲▼）。馬番・馬名は横にスクロールしても残ります。フォーメーション表の3着は馬番の小さい順。</p>
 <p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（06c74311…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
@@ -979,7 +979,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.6 (2026-11-24)";
+const VERSION = "m1v3-form-1.7 (2026-11-24)";
 const CSHA = "77fda45c46e13b74384dd98d446507bc86adbd5451e699a67aadd7322c59f41a";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -1083,17 +1083,19 @@ function raceHtml(J, rid){
   // 列: [見出し, 値, 表示, 良い向き（-1 小さいほど良い・+1 大きいほど良い・0 網掛けなし）, 左寄せ]
   const C = [
     ["馬番", r => r.num, r => r.num, 0], ["馬名", r => null, r => escH(r.name), 0, 1],
-    ["M1順位", r => r.rank, r => r.rank, -1], ["市場人気", r => r.pop, r => r.pop == null ? "" : r.pop, -1], ["単勝オッズ", r => r.odds, r => r.odds == null ? "" : r.odds.toFixed(1), -1, 0, 1],
+    ["M1順位", r => r.rank, r => r.rank, -1], ["市場人気", r => r.pop, r => r.pop == null ? "" : r.pop, -1], ["単勝オッズ", r => r.odds, r => r.odds == null ? "" : r.odds.toFixed(1), -1],
     ["M1合計点", r => r.total_d, r => sg(r.total_d), 1], ["勝率", r => mixed ? null : r.p, r => mixed ? "" : pct(r.p), 1],
     ["能力", r => r.abil_d, r => sg(r.abil_d), 1], ["加減", r => r.today_d, r => sg(r.today_d), 1], ["格と対戦", r => r.match_d, r => sg(r.match_d), 1],
     ["格R1", r => r.r1, r => r.r1 == null ? "記録なし" : r.r1.toFixed(2), -1], ["対戦H1", r => r.h1, r => r.h1 == null ? "対戦なし" : sg(r.h1), 1],
     ["プラス要因", r => null, r => escH(r.pos), 0, 1], ["マイナス要因", r => null, r => escH(r.neg), 0, 1]];
   const R = J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num);
-  const sc = (k, v) => v == null ? null : (C[k][5] ? Math.log(v) : v);   // 単勝オッズは対数で網掛け
-  const rng = C.map((c, k) => { const v = R.map(r => sc(k, c[1](r))).filter(x => x != null); return v.length ? [Math.min(...v), Math.max(...v)] : null; });
+  // 網掛けは列の中の順位で決める（値の大きさではなく、何番目か）。外れ値が1頭いても、ほかの馬の色がつぶれない。同じ値は同じ色
+  const vals = C.map(c => R.map(c[1]).filter(x => x != null));
   const shade = (k, v) => {   // 良い値 = 赤、悪い値 = 青
-    const d = C[k][3]; v = sc(k, v); if (!d || v == null || !rng[k] || rng[k][0] === rng[k][1]) return "";
-    let t = (v - rng[k][0]) / (rng[k][1] - rng[k][0]); if (d < 0) t = 1 - t;   // t = 1 が最良
+    const d = C[k][3], V = vals[k]; if (!d || v == null || V.length < 2) return "";
+    const lo = V.filter(x => x < v).length, eq = V.filter(x => x === v).length;
+    if (eq === V.length) return "";
+    let t = (lo + (eq - 1) / 2) / (V.length - 1); if (d < 0) t = 1 - t;   // t = 1 が最良
     const a = Math.abs(t - 0.5) * 2 * 0.55;
     return ' style="background:' + (t >= 0.5 ? "rgba(214,48,49," : "rgba(41,98,214,") + a.toFixed(3) + ')"';
   };
