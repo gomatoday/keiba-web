@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.5 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.6 (2026-11-24)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -979,7 +979,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.5 (2026-11-24)";
+const VERSION = "m1v3-form-1.6 (2026-11-24)";
 const CSHA = "77fda45c46e13b74384dd98d446507bc86adbd5451e699a67aadd7322c59f41a";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -1058,7 +1058,14 @@ function formHtml(J){
   if (J.mode === "混在") return '<p class="note">初出走の馬が混ざるレースなので、フォーメーションは出しません。</p>';
   if (!F) return '<p class="note">フォーメーションを出せません。</p>';
   let h = '<div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th style="text-align:center;min-width:4.5em">1着</th><th style="text-align:center;min-width:4.5em">2着</th><th class="l">3着</th></tr></thead><tbody>';
-  F.forEach(x => { h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + x.a + '</td><td style="text-align:center">' + x.b + '</td><td class="l">' + (x.C.length ? x.C.slice().sort((p, q) => p - q).join("・") : (J.odds ? "–" : "oddsJS なし")) + '</td></tr>'; });
+  const wk = Object.fromEntries(J.rows.map(r => [r.num, r.waku]));
+  const c3 = x => x.C.length ? x.C.slice().sort((p, q) => p - q).join("・") : (J.odds ? "–" : "oddsJS なし");
+  F.forEach(x => {
+    let a = x.a, b = x.b, c = c3(x);
+    if (x.kind === "単勝" || x.kind === "複勝"){ b = ""; c = ""; }                       // 1着だけ
+    else if (x.kind === "枠連" || x.kind === "枠単"){ a = wk[x.a] ? wk[x.a] + "枠" : ""; b = wk[x.b] ? wk[x.b] + "枠" : ""; c = ""; }   // 枠番号
+    else if (x.kind === "ワイド"){ c = ""; }                                                // 3着なし
+    h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + a + '</td><td style="text-align:center">' + b + '</td><td class="l">' + c + '</td></tr>'; });
   h += '</tbody></table></div>';
   if (!J.odds) h += '<p class="note bad">oddsJS が無いので、3着（市場人気1〜5位）を出せません。</p>';
   return h;
@@ -1066,8 +1073,8 @@ function formHtml(J){
 
 function raceHtml(J, rid){
   const I = J.info || {};
-  let h = '<h2>' + escH((I.r_venue || "") + " " + (I.r_rno || "") + "R　" + (I.r_surface || "") + (I.r_dist || "") + "m" + (I.r_heads ? "・" + I.r_heads + "頭" : "")) + '<span class="rid">' + rid + (I.r_post_time ? "　発走 " + escH(I.r_post_time) : "") + (I.r_title_raw ? "　" + escH(I.r_title_raw) : "") + '</span></h2>';
-  h += J.odds ? '<p class="note">oddsJS: 更新 ' + escH(J.odds.update) + '（状態 ' + escH(J.odds.status) + (J.odds.status === "2" ? '・<b class="bad">確定のオッズ。締切前の値ではない</b>' : '') + '）</p>' : '<p class="note">oddsJS なし（人気・単勝オッズは出しません）</p>';
+  let h = '<h2>' + escH((I.r_venue || "") + " " + (I.r_rno || "") + "R　" + (I.r_surface || "") + (I.r_dist || "") + "m" + (I.r_heads ? "・" + I.r_heads + "頭" : "")) + '<br><span class="rid" style="margin-left:0">' + rid + (I.r_post_time ? "　発走 " + escH(I.r_post_time) : "") + (I.r_title_raw ? "　" + escH(I.r_title_raw) : "") + '</span></h2>';
+  h += J.odds ? '<p class="note">oddsJS: 更新 ' + escH(J.odds.update) + '<br>（状態 ' + escH(J.odds.status) + (J.odds.status === "2" ? '・<b class="bad">確定のオッズ。締切前の値ではない</b>' : '') + '）</p>' : '<p class="note">oddsJS なし（人気・単勝オッズは出しません）</p>';
   if (J.mode === "新馬") return h + '<p class="note">全頭が初出走のレースなので、M1 v3 は計算しません。</p>';
   if (!J.rows.length) return h + '<p class="note">計算できる馬がいません。</p>';
   const mixed = J.mode === "混在";
