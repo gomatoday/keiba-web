@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M1 v3 能力表とフォーメーション表</title>
+<style>
+:root{--fg:#1d2433;--sub:#5b6474;--line:#d9dee7;--bg:#f6f7f9;--card:#fff;--acc:#2456c9;--bad:#b3261e;--ok:#1d7a3a;--hi:#fff4d6}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;color:var(--fg);background:var(--bg);font-size:15px;line-height:1.55}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:1.25rem;margin:.2em 0 .1em}h2{font-size:1.05rem;margin:0 0 .5em}h3{font-size:.95rem;margin:1em 0 .4em}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.note{color:var(--sub);font-size:.85rem;margin:.4em 0}.bad{color:var(--bad)}.ok{color:var(--ok)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:.4em 0}
+button{font:inherit;padding:.45em 1em;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}button.sub{background:transparent;color:var(--acc)}
+select{font:inherit;padding:.3em .5em;border-radius:6px;border:1px solid var(--line)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;font-size:.84rem;white-space:nowrap;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:4px 7px;text-align:right}
+th{background:#eef1f6;position:sticky;top:0;font-weight:600}
+td.l,th.l{text-align:left}td.w{white-space:normal;min-width:16em}
+table.sort th{cursor:pointer;user-select:none}table.sort th::after{content:" ↕";color:#9aa3b2;font-weight:400}
+table.sort th.asc::after{content:" ▲";color:var(--acc)}table.sort th.desc::after{content:" ▼";color:var(--acc)}
+tr.top td{background:var(--hi)}
+.rid{color:var(--sub);font-size:.8rem;font-weight:400;margin-left:.5em}
+.warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
+</style></head><body><main>
+<h1>M1 v3 能力表とフォーメーション表</h1>
+<div class="note">m1v3-form-1 (2026-11-24)　自分用・試し</div>
+<section>
+<h2>1. 係数のファイルを選ぶ</h2>
+<div class="row"><input type="file" id="fCoef" accept=".json,application/json"></div>
+<div id="coefSt" class="note">m1v3form_coef.json（SHA-256 が b43acdbe… のときだけ使います）。中身は M1 v3 v1 正式の係数と、回収率最大化 L2=0.001 の係数（9券種と合計の10組）。</div>
+<h2 style="margin-top:12px">2. 出走表を選ぶ</h2>
+<div class="row"><input type="file" id="fRace" multiple accept=".txt,.html,.htm"></div>
+<p class="note">ファイル名にレースID（16桁）を含むもの（例: card_2026121521110105_202612151842.txt）。何レースでも選べます。</p>
+<h2 style="margin-top:12px">3. oddsJS を選ぶ（人気・単勝オッズと、フォーメーションの3着候補に使う）</h2>
+<div class="row"><input type="file" id="fOdds" multiple><span id="oddsCnt" class="note" style="margin:0">0件</span></div>
+<p class="note">出走表と同じレースID を含むファイル名（例: oddspre_2026121521110105_20261215184200.txt）。出走表を取ったときに一緒に保存した oddsJS の値を、そのまま人気として使います。無いレースは人気と3着候補を出しません。</p>
+<div class="row"><button id="bRun" disabled>計算する</button><span id="boot" class="note" style="margin:0">準備しています…</span></div>
+<div id="status" class="note"></div>
+</section>
+<section>
+<h2>フォーメーションの係数</h2>
+<div class="row"><select id="selForm"></select></div>
+<p class="note">1着 a = 点の1位・2着 b = 点の2位（同じ点は馬番の小さい順）・3着 C = 人気1〜5位のうち a・b でない馬。単勝 a／複勝 a・b・C／枠連・枠単 a と b の枠／馬連・馬単 a-b／ワイド a-b・a-C・b-C／三連複 a-b-C／三連単 a→b→C。1点100円。</p>
+<div class="warn">回収率最大化 L2=0.001 の係数は、第1群で答えを知って作った過学習の係数です。第2群では合計向け 64.5%、どの券種も 100% 超は確かめられませんでした（記録139・141）。人気は締切前の oddsJS の値で、研究で使った確定人気ではありません。<b>買い方の根拠にしないでください。</b></div>
+<div class="row" style="margin-top:8px"><button id="bCsv" class="sub" disabled>能力表とフォーメーション表を CSV で保存</button></div>
+</section>
+<div id="out"></div>
+<section>
+<h2>このページについて</h2>
+<p class="note">能力表: M1 v3 v1（44列。正式の係数 6676e5ff…）。合計点・能力本体（A+D）・今回の加減（B+C+E）・格と対戦（R1+H1）はレースの平均を0にした値。勝つ確率は合計点のソフトマックス（市場と比べる前の目安）。初出走の馬が混ざるレースでは勝つ確率とフォーメーションを出さない。全頭が初出走のレースは計算しない。oddsJS で有効でない馬（取消・除外など）は除いて計算する。</p>
+<p class="note">表の見出しを押すと並べ替えます（もう一度押すと逆順）。</p>
+<p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（4587c235…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script type="text/plain" id="py-m1v2"># -*- coding: utf-8 -*-
+"""m1v2 1 (2026-11-18)  M1 v2 v1 の運用の計算（見通しのページ・Pyodide で使う。numpy と pandas だけ）。
+学習側からそのまま写したもの（文字は変えていない）:
+  e1.py aed09fb333f18bad… の zr・feats
+  class_rules.py b76147639f9951e7… の RANK・Z・TOK・KAN・kan2int・parse_title
+"""
+import re
+import numpy as np, pandas as pd
+
+
+# ---------------------------------------------------------------- class_rules.py から
+RANK = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "B3": 5, "C1": 6, "C2": 7, "C3": 8}
+Z = str.maketrans("ＡＢＣ０１２３４５６７８９－", "ABC0123456789-")
+TOK = re.compile(r"(?<![A-Za-z])([ABC])\s*(\d)(?:\s*-\s*(\d))?")
+KAN = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+
+
+def kan2int(t):
+    if t == "十":
+        return 10
+    if t.startswith("十"):
+        return 10 + KAN.get(t[1:], 0)
+    if len(t) == 2 and t[1] == "十":
+        return KAN.get(t[0], 0) * 10
+    if len(t) == 3 and t[1] == "十":
+        return KAN.get(t[0], 0) * 10 + KAN.get(t[2], 0)
+    return KAN.get(t)
+
+
+def parse_title(s, region):
+    """見出しの原文 → クラスの列（dict）"""
+    s = s or ""
+    z = s.translate(Z)
+    toks = [m.group(1) + m.group(2) + ("-" + m.group(3) if m.group(3) else "") for m in TOK.finditer(z)]
+    o = {"cls_tokens": "/".join(toks), "cls_name": "", "cls_rank": np.nan, "cls_age": "", "cls_kumi": np.nan,
+         "cls_newcomer": int("新馬" in s), "cls_grade": "", "jra_cls": ""}
+    o["cls_age"] = "2歳" if "２歳" in s else ("3歳" if "３歳" in s else "")
+    m = re.search(r"[（(]([一二三四五六七八九十]+)[)）]", s)
+    if m:
+        o["cls_kumi"] = kan2int(m.group(1))
+    else:
+        m = re.search(r"([０-９\d]+)組", s)
+        if m:
+            o["cls_kumi"] = int(m.group(1).translate(Z))
+    g = re.search(r"Ｊｐｎ\s*(III|II|I|Ⅲ|Ⅱ|Ⅰ)|ＪｐｎＩ+|Ｓ\s*(III|II|I|Ⅲ|Ⅱ|Ⅰ)|準重賞|オープン|ＯＰ", s)
+    if g:
+        o["cls_grade"] = g.group(0).replace("Ⅰ", "I").replace("Ⅱ", "II").replace("Ⅲ", "III")
+    if region == "中央":
+        for k, v in [("新馬", "新馬"), ("未勝利", "未勝利"), ("１勝", "1勝"), ("５００万", "1勝"), ("２勝", "2勝"), ("１０００万", "2勝"),
+                     ("３勝", "3勝"), ("１６００万", "3勝"), ("オープン", "OP"), ("（Ｌ）", "OP")]:
+            if k in s:
+                o["jra_cls"] = v
+                break
+        if not o["jra_cls"] and re.match(r"^第[０-９\d]+回", s):
+            o["jra_cls"] = "OP"          # 「第32回 平安Ｓ」など回数付きの重賞
+        if "障害" in s:
+            o["jra_cls"] = "障害" + o["jra_cls"]
+        o["cls_name"] = o["jra_cls"]
+        return o
+    if region == "南関東":
+        nk = list(dict.fromkeys(t for t in toks if t in RANK))
+        if nk:
+            o["cls_name"] = "".join(nk)
+            o["cls_rank"] = float(np.mean([RANK[t] for t in nk]))
+        elif s.strip() and (o["cls_grade"] or not o["cls_age"]):          # 記号も馬齢も無い南関東の競走は、重賞・準重賞・オープン
+            o["cls_name"] = "OP"
+            o["cls_rank"] = 0.0
+        elif o["cls_age"]:
+            o["cls_name"] = "馬齢" + o["cls_age"]
+        return o
+    # 他地区・海外: 記号をそのまま（物差しが違うので格の番号は付けない）
+    o["cls_name"] = "".join(toks)
+    return o
+
+
+# ---------------------------------------------------------------- e1.py から
+def zr(v, race, mask=None):
+    """レースの中で1回だけ z 得点（mask が False の馬は計算から除き 0）。標準偏差0なら0。"""
+    v = pd.Series(np.asarray(v, float), index=race.index)
+    m = pd.Series(True, index=race.index) if mask is None else pd.Series(np.asarray(mask, bool), index=race.index)
+    vv = v.where(m)
+    g = vv.groupby(race)
+    mu, sd = g.transform("mean"), g.transform(lambda s: s.std(ddof=0))
+    z = (vv - mu) / sd
+    z = z.where((sd > 1e-9) & m, 0.0).fillna(0.0)
+    return z.values
+
+
+def feats(X, lam):
+    """λ に依る c1〜c4 と、λ に依らない変数。戻り値: dict 名前 → 配列（z 済み・印は 0/1）"""
+    n = len(X)
+    race = X.r_race_id
+    F = {}
+    W = np.array([lam ** k for k in range(5)])
+    ok = np.column_stack([((X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "")).values for k in range(1, 6)])
+    g = lambda c: np.column_stack([pd.to_numeric(X["p%d_%s" % (k, c)], errors="coerce").values for k in range(1, 6)])
+    fin, hd, mg, ds, p1, pl, l3 = g("fin"), g("heads"), g("margin"), g("dist"), g("pass1"), g("pass_last"), g("l3f_rank")
+    ok = ok & (hd >= 2)
+
+    def agg(val, use):
+        use = use & ~np.isnan(val)
+        w = np.where(use, W, 0.0)
+        sw = w.sum(1)
+        cnt = use.sum(1)
+        with np.errstate(all="ignore"):
+            m = np.where(sw > 0, np.nansum(np.where(use, val, 0) * w, 1) / np.where(sw > 0, sw, 1), np.nan)
+        return m * np.minimum(1.0, cnt / 3.0), cnt
+    with np.errstate(all="ignore"):
+        v1 = 0.5 - (fin - 1) / (hd - 1)
+        m = np.minimum(np.abs(mg), 3.0) / ds * 1000
+        v2 = np.where(fin == 1, m, -m)
+        v3a = p1 / hd
+        v3b = np.clip((pl - fin) / (hd - 1), -1, 1)
+        v4 = (hd - l3) / (hd - 1) - 0.5
+    c1, _ = agg(v1, ok); c2, _ = agg(v2, ok); c3a, _ = agg(v3a, ok); c3b, _ = agg(v3b, ok); c4, n4 = agg(v4, ok)
+    miss4 = np.isnan(c4)
+    for nm, v in [("c1", c1), ("c2", c2), ("c3a", c3a), ("c3b", c3b)]:
+        F[nm] = zr(np.nan_to_num(v), race, ~np.isnan(v))
+    F["c4"] = zr(np.nan_to_num(c4), race, ~miss4)
+    F["c4_欠け"] = miss4.astype(float)
+    # 前走 = いちばん新しい普通の走
+    first = np.argmax(ok, axis=1)
+    idx = np.arange(n)
+    F["前走1着"] = (fin[idx, first] == 1).astype(float)
+    cur = pd.to_numeric(X.r_dist, errors="coerce").values
+    dd = cur - ds[idx, first]
+    for nm, lo, hi in [("距離差_-300以下", -1e9, -300), ("距離差_-299〜-100", -299, -100), ("距離差_+100〜+299", 100, 299), ("距離差_+300以上", 300, 1e9)]:
+        F[nm] = ((dd >= lo) & (dd <= hi)).astype(float)
+    near = np.nanmin(np.where(ok, np.abs(cur[:, None] - ds), np.inf), axis=1)
+    F["距離経験_100〜299"] = ((near >= 100) & (near <= 299)).astype(float)
+    F["距離経験_300以上"] = ((near >= 300) & np.isfinite(near)).astype(float)
+    dts = np.column_stack([pd.to_datetime(X["p%d_date" % k], format="%Y%m%d", errors="coerce").values for k in range(1, 6)])
+    today = pd.to_datetime(X.r_date, format="%Y%m%d").values
+    d_first = dts[idx, first]
+    days = (today - d_first).astype("timedelta64[D]").astype(float)
+    for nm, lo, hi in [("間隔_〜13", 0, 13), ("間隔_14〜20", 14, 20), ("間隔_28〜34", 28, 34), ("間隔_35〜62", 35, 62), ("間隔_63〜125", 63, 125), ("間隔_126〜", 126, 1e9)]:
+        F[nm] = ((days >= lo) & (days <= hi)).astype(float)
+    ok2 = ok.copy(); ok2[idx, first] = False
+    has2 = ok2.any(1)
+    second = np.argmax(ok2, axis=1)
+    gap = (d_first - dts[idx, second]).astype("timedelta64[D]").astype(float)
+    F["叩き2走目"] = (has2 & (gap >= 63) & (days <= 62)).astype(float)
+    # 共通の列
+    ab = np.column_stack([X["p%d_abnormal" % k].values for k in range(1, 6)])
+    ex = np.column_stack([(X["p%d_exists" % k] == "1").values for k in range(1, 6)])
+    F["走の数"] = zr(ok.sum(1), race)
+    F["中止の数"] = zr((ab == "中止").sum(1), race)
+    F["取消除外の数"] = zr(((ab == "取消") | (ab == "除外")).sum(1), race)
+    F["能試の数"] = zr((ab == "能試").sum(1), race)
+    F["直前の欄が普通でない"] = (ex[:, 0] & (ab[:, 0] != "") & (ab[:, 0] != "初出走欄")).astype(float)
+    # 移籍
+    reg = np.column_stack([X["p%d_region" % k].values for k in range(1, 6)])
+    jra = np.column_stack([X["jra%d" % k].values if "jra%d" % k in X else np.array([""] * n) for k in range(1, 6)])
+    o_c, o_cm, o_o = np.zeros(n), np.zeros(n), np.zeros(n)
+    t = np.zeros((n, 4))
+    for i in range(n):
+        cntn = 0
+        for k in range(5):
+            if not ok[i, k]:
+                continue
+            cntn += 1
+            if reg[i, k] != "南関東":
+                if reg[i, k] == "中央":
+                    if jra[i, k] == "未勝利":
+                        o_cm[i] = 1
+                    else:
+                        o_c[i] = 1
+                else:
+                    o_o[i] = 1
+                t[i, min(cntn, 4) - 1] = 1
+                break
+    F["移籍元_中央"], F["移籍元_中央未勝利"], F["移籍元_他地区"] = o_c, o_cm, o_o
+    for j, nm in enumerate(["移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目"]):
+        F[nm] = t[:, j]
+    # 属性
+    age = pd.to_numeric(X.h_age, errors="coerce").values
+    F["年齢_2歳"] = (age == 2).astype(float); F["年齢_3歳"] = (age == 3).astype(float)
+    F["年齢_6〜7歳"] = ((age >= 6) & (age <= 7)).astype(float); F["年齢_8歳以上"] = (age >= 8).astype(float)
+    F["牝"] = (X.h_sex == "牝").values.astype(float); F["セン"] = (X.h_sex == "セ").values.astype(float)
+    kin = pd.to_numeric(X.h_kin, errors="coerce")
+    kd = (kin - kin.groupby(race).transform("mean")).values
+    F["斤量の差"] = zr(np.nan_to_num(kd), race, ~np.isnan(kd))
+    F["減量あり"] = (X.h_gen_mark != "").values.astype(float)
+    return F
+
+
+# ================================================================ ここから M1 v2 v1 の運用の部分（m1v2 1）
+LAM = 0.7
+LAYER_A = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない"]
+LAYER_B = ["距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上"]
+LAYER_C = ["間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目"]
+LAYER_D = ["移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目"]
+LAYER_E = ["年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり"]
+COLS = LAYER_A + LAYER_B + LAYER_C + LAYER_D + LAYER_E
+ABILITY = LAYER_A + LAYER_D          # 能力本体
+TODAY = LAYER_B + LAYER_C + LAYER_E  # 今回の加減
+
+# 表示の名前（主な要因に使う）
+LABEL = {"c1": "近走の着順", "c2": "近走の着差", "c3a": "近走の先行力", "c3b": "近走の追い上げ", "c4": "近走の上がり",
+         "c4_欠け": "上がりの記録なし", "前走1着": "前走1着", "走の数": "前5走の走の数", "中止の数": "前5走の中止",
+         "取消除外の数": "前5走の取消・除外", "能試の数": "前5走の能試", "直前の欄が普通でない": "直前の欄が普通でない",
+         "距離差_-300以下": "距離短縮300m以上", "距離差_-299〜-100": "距離短縮100〜299m", "距離差_+100〜+299": "距離延長100〜299m",
+         "距離差_+300以上": "距離延長300m以上", "距離経験_100〜299": "距離経験から100〜299m離れる", "距離経験_300以上": "距離経験から300m以上離れる",
+         "間隔_〜13": "中1週以内", "間隔_14〜20": "中2週", "間隔_28〜34": "中4週", "間隔_35〜62": "間隔35〜62日",
+         "間隔_63〜125": "間隔63〜125日", "間隔_126〜": "間隔126日以上", "叩き2走目": "叩き2走目",
+         "移籍元_中央": "中央から移籍", "移籍元_中央未勝利": "中央未勝利から移籍", "移籍元_他地区": "他地区から移籍",
+         "移籍後_1走目": "移籍後1走目", "移籍後_2走目": "移籍後2走目", "移籍後_3走目": "移籍後3走目", "移籍後_4〜5走目": "移籍後4〜5走目",
+         "年齢_2歳": "2歳", "年齢_3歳": "3歳", "年齢_6〜7歳": "6〜7歳", "年齢_8歳以上": "8歳以上", "牝": "牝", "セン": "セン",
+         "斤量の差": "斤量（重いほど＋）", "減量あり": "減量騎手"}
+
+
+def load_coef(js):
+    """正式版の係数（ability_coef_v2_v1_final.json の中身の dict）→ 列の順の配列"""
+    assert js["cols"] == COLS and js["lambda"] == LAM, "係数ファイルの列・λ が M1 v2 v1 と合わない"
+    return np.array([float(x) for x in js["coef"]])
+
+
+def add_jra(H):
+    """前5走の中央のクラス（class_rules の parse_title と同じ。学習側の past_runs_class.csv の jra_cls）"""
+    H = H.copy()
+    for k in range(1, 6):
+        H["jra%d" % k] = [parse_title(t, g)["jra_cls"] if g == "中央" else "" for t, g in zip(H["p%d_title_raw" % k], H["p%d_region" % k])]
+    return H
+
+
+def compute(H, coef, drop=()):
+    """H: 学習用テーブルと同じ形の行（文字列。1レース以上）。drop: 除く馬の (r_race_id, h_num)。
+    戻り値: (馬ごとの表, レースごとの表)。
+    - 出る馬 = 馬番が数・取消除外の印なし・drop に入らない馬。
+    - 普通の走（前5走で exists=1・abnormal が空）が無い馬を「初出走」とする。
+      全頭が初出走 → mode=新馬（M1 v2 は出さない）。混ざる → mode=混在（経験馬だけで z を取り、確率は出さない）。それ以外 → mode=通常。"""
+    H = H.fillna("").astype(str)
+    dropset = set((str(a), str(b)) for a, b in drop)
+    run = (H.h_num != "") & (H.h_scratched == "0") & ~pd.Series([(a, b) in dropset for a, b in zip(H.r_race_id, H.h_num)], index=H.index)
+    X = H[run].copy()
+    nrm = sum(((X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "")).astype(int) for k in range(1, 6))
+    X["初出走"] = nrm == 0
+    g = X.groupby("r_race_id")["初出走"]
+    nd, nn = g.transform("sum"), g.transform("size")
+    X["mode"] = np.where(nd == nn, "新馬", np.where(nd > 0, "混在", "通常"))
+    E = X[(X["mode"] != "新馬") & ~X["初出走"]].copy()
+    E = add_jra(E).sort_values(["r_race_id", "h_num"], key=lambda s: s if s.name == "r_race_id" else pd.to_numeric(s)).reset_index(drop=True)
+    out = pd.DataFrame({"r_race_id": E.r_race_id.values, "h_num": E.h_num.values, "h_name": E.h_name.values, "mode": E["mode"].values})
+    if len(E):
+        F = feats(E, LAM)
+        Xm = np.column_stack([F[c] for c in COLS])
+        contrib = Xm * coef
+        for j, c in enumerate(COLS):
+            out[c] = Xm[:, j]
+        ia = [COLS.index(c) for c in ABILITY]; it = [COLS.index(c) for c in TODAY]
+        out["合計点"] = contrib.sum(1)
+        out["能力本体"] = contrib[:, ia].sum(1)
+        out["今回の加減"] = contrib[:, it].sum(1)
+        rid = out.r_race_id
+        for c in ["合計点", "能力本体", "今回の加減"]:
+            out[c + "_表示"] = out[c] - out.groupby(rid)[c].transform("mean")
+        out["順位"] = out.groupby(rid)["合計点"].rank(ascending=False, method="min").astype(int)
+        out["能力本体の順位"] = out.groupby(rid)["能力本体"].rank(ascending=False, method="min").astype(int)
+        mx = out.groupby(rid)["合計点"].transform("max")
+        e = np.exp(out["合計点"] - mx)
+        p = e / e.groupby(rid).transform("sum")
+        out["勝つ確率"] = np.where(out["mode"] == "通常", p, np.nan)
+        # 主な要因（係数 × 入力値。全40列から、プラスの大きい順に2つ・マイナスの大きい順に2つ）
+        pos, neg = [], []
+        for i in range(len(out)):
+            ci = contrib[i]
+            o = np.argsort(-ci)
+            pos.append(" / ".join("%s %+.2f" % (LABEL[COLS[j]], ci[j]) for j in o[:2] if ci[j] > 0.005))
+            o = np.argsort(ci)
+            neg.append(" / ".join("%s %+.2f" % (LABEL[COLS[j]], ci[j]) for j in o[:2] if ci[j] < -0.005))
+        out["プラス要因"], out["マイナス要因"] = pos, neg
+        # 注意（別枠）
+        okn = np.column_stack([((E["p%d_exists" % k] == "1") & (E["p%d_abnormal" % k] == "") & (pd.to_numeric(E["p%d_heads" % k], errors="coerce") >= 2)).values for k in range(1, 6)]).sum(1)
+        flags = []
+        for i in range(len(out)):
+            f = []
+            if out["c4_欠け"].iloc[i] == 1: f.append("上がりの記録なし（c4欠け）")
+            if okn[i] < 3: f.append("普通の走が%d走" % okn[i])
+            if out["直前の欄が普通でない"].iloc[i] == 1: f.append("直前の欄が普通でない")
+            if out["移籍後_1走目"].iloc[i] == 1: f.append("移籍後1走目")
+            flags.append(" / ".join(f))
+        out["注意"] = flags
+    deb = X[X["初出走"] & (X["mode"] != "通常")][["r_race_id", "h_num", "h_name", "mode"]]
+    races = X.groupby("r_race_id").agg(mode=("mode", "first"), 出る馬=("h_num", "size"), 初出走=("初出走", "sum")).reset_index()
+    return out, deb, races
+</script>
+<script type="text/plain" id="py-m1v3"># -*- coding: utf-8 -*-
+"""m1v3 1 (2026-11-20)  M1 v3 v1 の運用の計算（見通しのページ・Pyodide・fwd_run で使う。numpy と pandas だけ）。
+m1v2.py（c34f2f4a…）は変えずに読み込み、40列・馬の選び方・レース内 z は m1v2 のものを使う。
+足した4列（R1・R1_欠け・H1・H1_欠け）は、探索のコードから文字のまま写した:
+  rl_stage1.py eb29fb84… の W・wmean・cols_of（e1.zr は m1v2.zr＝e1.py の zr の写し）と、candidates の R1 の部分
+  ra_stage0.py fffcb7ab… の head2head
+学習との違いは R1 の格の番号の取り方だけ: 学習は past_runs_class.csv の cls_rank、運用は出走表の過去走の題名から
+class_rules の parse_title（m1v2.py に写してあるもの）で作る。
+"""
+import numpy as np, pandas as pd
+import m1v2
+from m1v2 import parse_title, LAM
+
+e1 = m1v2          # 写したコードの e1.zr をそのまま読めるように
+ADD = ["R1", "R1_欠け", "H1", "H1_欠け"]
+COLS = m1v2.COLS + ADD
+ABILITY = m1v2.ABILITY            # 能力本体（A＋D）
+TODAY = m1v2.TODAY                # 今回の加減（B＋C＋E）
+MATCH = ADD                       # 格と対戦（R1＋H1）
+LABEL = dict(m1v2.LABEL, **{"R1": "格の水準（格が上ほど＋）", "R1_欠け": "格の記録なし", "H1": "今回の相手との対戦成績", "H1_欠け": "今回の相手と対戦なし"})
+
+
+# ---------------------------------------------------------------- rl_stage1.py から
+W = np.array([LAM ** k for k in range(5)])
+
+
+def wmean(val, use):
+    use = use & ~np.isnan(val)
+    w = np.where(use, W, 0.0); sw = w.sum(1)
+    with np.errstate(all="ignore"):
+        return np.where(sw > 0, np.nansum(np.where(use, val, 0) * w, 1) / np.where(sw > 0, sw, 1), np.nan)
+
+
+def cols_of(v, race):
+    """値 → [レース内 z（欠けは 0）, 欠けの印]"""
+    m = ~np.isnan(v)
+    return np.column_stack([e1.zr(np.nan_to_num(v), race, m), (~m).astype(float)])
+
+
+# ---------------------------------------------------------------- ra_stage0.py から
+def head2head(X):
+    """H1・H2: 前5走で一緒に走ったことのある今回の出走馬との先着・被先着。出走表の過去走のレースIDと着順（レースより前の情報）"""
+    rows = []
+    for k in range(1, 6):
+        ok = (X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "") & (X["p%d_race_id" % k] != "")
+        f = pd.to_numeric(X["p%d_fin" % k], errors="coerce")
+        T = pd.DataFrame({"i": X.index[ok], "r": X.r_race_id[ok].values, "q": X["p%d_race_id" % k][ok].values, "f": f[ok].values})
+        rows.append(T[T.f.notna()])
+    T = pd.concat(rows)
+    M = T.merge(T, on=["r", "q"], suffixes=("", "_o"))
+    M = M[M.i != M.i_o]
+    M["w"] = (M.f < M.f_o).astype(int) - (M.f > M.f_o).astype(int)
+    g = M.groupby("i")
+    meet = g.size(); net = g.w.sum(); opp = g.i_o.nunique()
+    n = len(X)
+    h1 = np.full(n, np.nan); h2 = np.zeros(n)
+    h1[net.index.values] = (net / meet).values; h2[opp.index.values] = opp.values
+    has_id = sum(((X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "") & (X["p%d_race_id" % k] != "")).astype(int) for k in range(1, 6)).values
+    return h1, h2, int(len(M) // 2), has_id
+
+
+# ---------------------------------------------------------------- R1（運用での作り方）
+def cls_rank_grid(X):
+    """前5走の格の番号（class_rules の parse_title の cls_rank。学習の past_runs_class.csv と同じ作り方）"""
+    n = len(X); g = np.full((n, 5), np.nan)
+    cache = {}
+    for k in range(1, 6):
+        v = []
+        for t, r in zip(X["p%d_title_raw" % k], X["p%d_region" % k]):
+            key = (t, r)
+            if key not in cache:
+                cache[key] = parse_title(t, r)["cls_rank"]
+            v.append(cache[key])
+        g[:, k - 1] = np.array(v, dtype=float)
+    return g
+
+
+def r1_value(X):
+    """rl_stage1.candidates の R1 の部分と同じ（rank の取り方だけが運用の形）"""
+    ok = np.column_stack([((X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "")).values for k in range(1, 6)])
+    hd = np.column_stack([pd.to_numeric(X["p%d_heads" % k], errors="coerce").values for k in range(1, 6)])
+    ok = ok & (hd >= 2)
+    reg = np.column_stack([X["p%d_region" % k].values for k in range(1, 6)])
+    nk = ok & (reg == "南関東")
+    rank = cls_rank_grid(X)
+    return wmean(rank, nk)
+
+
+def add_cols(E):
+    """E（m1v2 の馬の選び方のあと。0 から並んだ行）→ 4列の配列と、元の値（R1・H1）"""
+    E = E.reset_index(drop=True)
+    r1 = r1_value(E); h1 = head2head(E)[0]
+    C = np.column_stack([cols_of(r1, E.r_race_id), cols_of(h1, E.r_race_id)])
+    return C, r1, h1
+
+
+def load_coef(js):
+    """正式版の係数（ability_coef_v3_v1_final.json の中身の dict）→ 列の順の配列"""
+    assert js["cols"] == COLS and js["lambda"] == LAM, "係数ファイルの列・λ が M1 v3 v1 と合わない"
+    assert js.get("採用") is True, "採用の印のない係数ファイル"
+    return np.array([float(x) for x in js["coef"]])
+
+
+def compute(H, coef, drop=()):
+    """m1v2.compute と同じ入力・同じ馬の選び方（下の6行は m1v2.compute の文字のまま）で、M1 v3 の値を出す。
+    戻り値: (馬ごとの表, 初出走の馬, レースごとの表)。"""
+    H = H.fillna("").astype(str)
+    dropset = set((str(a), str(b)) for a, b in drop)
+    run = (H.h_num != "") & (H.h_scratched == "0") & ~pd.Series([(a, b) in dropset for a, b in zip(H.r_race_id, H.h_num)], index=H.index)
+    X = H[run].copy()
+    nrm = sum(((X["p%d_exists" % k] == "1") & (X["p%d_abnormal" % k] == "")).astype(int) for k in range(1, 6))
+    X["初出走"] = nrm == 0
+    g = X.groupby("r_race_id")["初出走"]
+    nd, nn = g.transform("sum"), g.transform("size")
+    X["mode"] = np.where(nd == nn, "新馬", np.where(nd > 0, "混在", "通常"))
+    E = X[(X["mode"] != "新馬") & ~X["初出走"]].copy()
+    E = m1v2.add_jra(E).sort_values(["r_race_id", "h_num"], key=lambda s: s if s.name == "r_race_id" else pd.to_numeric(s)).reset_index(drop=True)
+    out = pd.DataFrame({"r_race_id": E.r_race_id.values, "h_num": E.h_num.values, "h_name": E.h_name.values, "mode": E["mode"].values})
+    if len(E):
+        F = m1v2.feats(E, LAM)
+        C, r1, h1 = add_cols(E)
+        Xm = np.column_stack([np.column_stack([F[c] for c in m1v2.COLS]), C])
+        contrib = Xm * coef
+        for j, c in enumerate(COLS):
+            out[c] = Xm[:, j]
+        out["R1の元の値"] = r1; out["H1の元の値"] = h1
+        ia = [COLS.index(c) for c in ABILITY]; it = [COLS.index(c) for c in TODAY]; im = [COLS.index(c) for c in MATCH]
+        out["合計点"] = contrib.sum(1)
+        out["能力本体"] = contrib[:, ia].sum(1)
+        out["今回の加減"] = contrib[:, it].sum(1)
+        out["格と対戦"] = contrib[:, im].sum(1)
+        rid = out.r_race_id
+        for c in ["合計点", "能力本体", "今回の加減", "格と対戦"]:
+            out[c + "_表示"] = out[c] - out.groupby(rid)[c].transform("mean")
+        out["順位"] = out.groupby(rid)["合計点"].rank(ascending=False, method="min").astype(int)
+        mx = out.groupby(rid)["合計点"].transform("max")
+        e = np.exp(out["合計点"] - mx)
+        p = e / e.groupby(rid).transform("sum")
+        out["勝つ確率"] = np.where(out["mode"] == "通常", p, np.nan)
+        pos, neg = [], []
+        for i in range(len(out)):
+            ci = contrib[i]
+            o = np.argsort(-ci)
+            pos.append(" / ".join("%s %+.2f" % (LABEL[COLS[j]], ci[j]) for j in o[:2] if ci[j] > 0.005))
+            o = np.argsort(ci)
+            neg.append(" / ".join("%s %+.2f" % (LABEL[COLS[j]], ci[j]) for j in o[:2] if ci[j] < -0.005))
+        out["プラス要因"], out["マイナス要因"] = pos, neg
+        out["格の記録"] = np.where(out["R1_欠け"] == 1, "なし", "")
+        out["今回の相手との対戦"] = np.where(out["H1_欠け"] == 1, "なし", "")
+    deb = X[X["初出走"] & (X["mode"] != "通常")][["r_race_id", "h_num", "h_name", "mode"]]
+    races = X.groupby("r_race_id").agg(mode=("mode", "first"), 出る馬=("h_num", "size"), 初出走=("初出走", "sum")).reset_index()
+    return out, deb, races
+</script>
+<script type="text/plain" id="py-m1v3form"># -*- coding: utf-8 -*-
+"""m1v3form 1 (2026-11-24)  新しいページ（M1 v3 の能力表とフォーメーション表）の計算（Pyodide。numpy と pandas だけ）。
+- 能力表: m1v3.compute（m1v3.py を変えずに読む）に M1 v3 v1 正式の係数（6676e5ff…）を渡した値。
+- フォーメーション: 1着 a = 点1位・2着 b = 点2位（同じ点は馬番の小さい順）・3着 C = 人気1〜5位のうち a・b でない馬。
+  点は「M1 v3 正式」「回収率最大化 L2=0.001 の券種ごとの係数」「回収率最大化 L2=0.001 の合計向けの係数」の3通り（v_form_max44_real.json。記録139）。
+- 人気・単勝オッズ: 出走表と一緒に読み込んだ oddsJS（取得時の値）の単勝オッズの低い順（有効な馬だけ。同じオッズは馬番の小さい順）。
+- oddsJS で有効でない馬を除く決まりは m1v3page.drop_of と同じ。oddsJS の読み方は forecast_v50.read_oddsjs を文字のまま写した。"""
+import json, hashlib, re
+import numpy as np, pandas as pd
+import m1v3
+
+COEF_SHA = None   # ページの組み立てで書き込む
+C3 = None         # M1 v3 正式の係数
+SETS = None       # [(名前, 券種の並び, 係数)]
+KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"]
+
+
+def load(path):
+    global C3, SETS
+    b = open(path, "rb").read()
+    if hashlib.sha256(b).hexdigest() != COEF_SHA:
+        raise ValueError("係数のファイルが登録のもの（%s…）ではない" % COEF_SHA[:8])
+    js = json.loads(b.decode("utf-8"))
+    assert js["cols"] == m1v3.COLS, "係数ファイルの列が合わない"
+    C3 = np.array([float(x) for x in js["m1v3"]["coef"]])
+    SETS = [(s["name"], s["kinds"], np.array([float(x) for x in s["coef"]])) for s in js["sets"]]
+    assert all(len(s[2]) == len(m1v3.COLS) for s in SETS) and len(C3) == len(m1v3.COLS)
+    return True
+
+
+def read_oddsjs(path):
+    """oddsJS（/oddsJS/<ID>.do の中身）を読む。extract_odds_v50.html の readOdds と同じ読み方。"""
+    b = open(path, "rb").read()
+    try:
+        t = b.decode("utf-8")
+    except UnicodeDecodeError:
+        t = b.decode("shift_jis", errors="replace")
+    bt = re.search(r"var\s+odds_tan\s*=\s*\{([\s\S]*?)\};", t)
+    st = re.search(r'var\s+odds_status\s*=\s*"([^"]*)"', t)
+    ut = re.search(r'var\s+update_time\s*=\s*"([^"]*)"', t)
+    if not bt:
+        raise ValueError("oddsJS の単勝オッズ（odds_tan）を読めない")
+    tan = {}
+    for m in re.finditer(r'"(\d+)"\s*:\s*\[\s*"([^"]*)"\s*,\s*(true|false)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]', bt.group(1)):
+        tan[int(m.group(1))] = (m.group(2), m.group(3))
+    return {"tan": tan, "status": st.group(1) if st else "", "update": re.sub(r"[^\d: ]+", "-", ut.group(1)) if ut else ""}
+
+
+def _odds(od, n):
+    o, valid = od["tan"].get(int(n), ("", "false"))
+    try:
+        x = float(o)
+    except ValueError:
+        x = float("nan")
+    return x if (valid == "true" and x == x and x > 0) else None
+
+
+def _f(v, d=4):
+    return None if v is None or (isinstance(v, float) and v != v) else round(float(v), d)
+
+
+def tickets(a, b, C, waku):
+    wa, wb = waku.get(str(a), ""), waku.get(str(b), "")
+    ws = lambda s: int(s) if s.isdigit() else 99
+    return {"単勝": [str(a)], "複勝": [str(h) for h in [a, b] + C],
+            "枠連": ["%s-%s" % tuple(sorted([wa, wb], key=ws))] if wa and wb else [], "枠単": ["%s→%s" % (wa, wb)] if wa and wb else [],
+            "馬連": ["%d-%d" % tuple(sorted([a, b]))], "馬単": ["%d→%d" % (a, b)],
+            "ワイド": ["%d-%d" % tuple(sorted([a, b]))] + ["%d-%d" % tuple(sorted([a, c])) for c in C] + ["%d-%d" % tuple(sorted([b, c])) for c in C],
+            "三連複": ["-".join(str(x) for x in sorted([a, b, c])) for c in C], "三連単": ["%d→%d→%d" % (a, b, c) for c in C]}
+
+
+def run(csv_path, rid, odds_path=""):
+    H = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
+    od = read_oddsjs(odds_path) if odds_path else None
+    drop = []
+    if od is not None:   # m1v3page.drop_of と同じ決まり
+        for n in H.h_num:
+            if n and int(n) in od["tan"] and _odds(od, n) is None:
+                drop.append((rid, n))
+    out, deb, races = m1v3.compute(H, C3, drop)
+    mode = races["mode"].iloc[0] if len(races) else "なし"
+    info = {}
+    if len(H):
+        r0 = H.iloc[0]
+        info = {k: r0.get(k, "") for k in ["r_date", "r_venue", "r_rno", "r_post_time", "r_dist", "r_surface", "r_inout", "r_title_raw", "r_heads"]}
+    waku = dict(zip(H.h_num, H.h_waku))
+    od_info = {"status": od["status"], "update": od["update"]} if od else None
+    # 人気（有効な馬だけ）
+    odds = {}
+    if od is not None:
+        for n in H.h_num:
+            if n:
+                x = _odds(od, n)
+                if x is not None:
+                    odds[int(n)] = x
+    pop = {n: k + 1 for k, (x, n) in enumerate(sorted((x, n) for n, x in odds.items()))}
+    rows = []; forms = {}
+    if len(out) and "順位" in out.columns:
+        out = out.reset_index(drop=True); X = out[m1v3.COLS].values.astype(float); num = pd.to_numeric(out.h_num).values
+        def order(s):
+            return [int(num[i]) for i in sorted(range(len(s)), key=lambda i: (-s[i], num[i]))]
+        for _, r in out.iterrows():
+            n = int(r.h_num)
+            rows.append({"num": n, "name": r.h_name, "waku": waku.get(r.h_num, ""), "pop": pop.get(n), "odds": odds.get(n), "rank": int(r["順位"]),
+                         "total_d": _f(r["合計点_表示"]), "p": _f(r["勝つ確率"]), "abil_d": _f(r["能力本体_表示"]), "today_d": _f(r["今回の加減_表示"]),
+                         "match_d": _f(r["格と対戦_表示"]), "r1": None if r["格の記録"] == "なし" else _f(r["R1の元の値"]),
+                         "h1": None if r["今回の相手との対戦"] == "なし" else _f(r["H1の元の値"]), "pos": r["プラス要因"], "neg": r["マイナス要因"],
+                         "total": _f(r["合計点"], 6), "x": [_f(r[c], 6) for c in m1v3.COLS]})
+        C_all = [n for n, k in sorted(pop.items(), key=lambda t: t[1]) if k <= 5]
+        if len(rows) >= 2 and mode == "通常":
+            def form(s, kinds):
+                o = order(s); a, b = o[0], o[1]; C = [x for x in C_all if x not in (a, b)]
+                T = tickets(a, b, C, waku)
+                return [{"kind": k, "a": a, "b": b, "C": C, "tickets": T[k]} for k in kinds]
+            forms["M1 v3 正式"] = form(X @ C3, KINDS)
+            per = []
+            for name, kinds, b in SETS:
+                if len(kinds) == 1:
+                    per += form(X @ b, kinds)
+            forms["回収率最大化 L2=0.001（券種ごとの係数）"] = per
+            for name, kinds, b in SETS:
+                if len(kinds) > 1:
+                    forms["回収率最大化 L2=0.001（%s）" % name] = form(X @ b, kinds)
+    return json.dumps({"mode": mode, "info": info, "odds": od_info, "rows": rows, "forms": forms,
+                       "debut": [{"num": int(d.h_num), "name": d.h_name} for _, d in deb.iterrows()],
+                       "dropped": [int(x) for _, x in drop], "cols": m1v3.COLS}, ensure_ascii=False)
+</script>
+<script>
+const LT = (function(){
+/* learn_core: v50_learn_table.html（learn-table-1, SHA-256 3a794b60366891a4…）の69〜79行と96〜350行をそのまま切り出したもの */
+const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
+const txt = el => el ? norm(el.textContent) : "";
+const z2h = s => (s || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+const numOr = s => { const m = z2h(s || "").replace(/,/g, "").match(/^-?\d+(?:\.\d+)?$/); return m ? m[0] : ""; };
+
+/* ---------- 場の名前の表（固定） ---------- */
+const REGION = {};
+["札幌","函館","福島","新潟","東京","中山","中京","京都","阪神","小倉"].forEach(v => REGION[v] = "中央");
+["大井","川崎","船橋","浦和"].forEach(v => REGION[v] = "南関東");
+["門別","帯広","盛岡","水沢","金沢","笠松","名古屋","園田","姫路","高知","佐賀"].forEach(v => REGION[v] = "他地区");
+
+async function readFile(file) {
+  const buf = await file.arrayBuffer();
+  let s;
+  try { s = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+  catch (e) { s = new TextDecoder("shift_jis").decode(buf); }
+  return { html: s, doc: new DOMParser().parseFromString(s, "text/html") };
+}
+function kindOf(doc) {
+  const t = doc.title || "";
+  if (/成績/.test(t)) return "res";
+  if (/レース情報/.test(t)) return "card";
+  return "";
+}
+function idFrom(a, re) { const h = a ? a.getAttribute("href") || "" : ""; const m = h.match(re); return m ? m[1] : ""; }
+function brParts(td) { return td ? td.innerHTML.split(/<br\s*\/?>/i).map(s => norm(s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " "))) : []; }
+function ymd(y, m, d) { return y + String(m).padStart(2, "0") + String(d).padStart(2, "0"); }
+function toDate(s) { return s && /^\d{8}$/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)) : null; }
+function daysBetween(a, b) { const x = toDate(a), y = toDate(b); return x == null || y == null ? "" : String(Math.round((y - x) / 86400000)); }
+function timeSec(s) {
+  s = z2h(s || "").trim();
+  let m = s.match(/^(\d+):(\d{1,2})\.(\d)$/); if (m) return (+m[1] * 60 + +m[2] + +m[3] / 10).toFixed(1);
+  m = s.match(/^(\d{1,3})\.(\d)$/); if (m) return (+m[1] + +m[2] / 10).toFixed(1);
+  return "";
+}
+function wakuOf(num, n) {                 // 8枠制の決まり（9頭以上は後ろの枠から2頭ずつ）
+  num = +num; n = +n; if (!num || !n || num > n) return "";
+  if (n <= 8) return String(num);
+  const q = Math.floor(n / 8), r = n % 8; let c = 0;
+  for (let w = 1; w <= 8; w++) { c += (w <= 8 - r) ? q : q + 1; if (num <= c) return String(w); }
+  return "";
+}
+
+/* ---------- 見出し（出走表・結果で共通） ---------- */
+function parseHeader(doc) {
+  const o = {};
+  const sub = doc.querySelector("p.nk23_c-tab1__subtitle");
+  if (!sub) return null;
+  o.rno = txt(sub.querySelector(".nk23_c-tab1__subtitle__label")).replace("R", "");
+  const tx = [...sub.querySelectorAll(":scope > .nk23_c-tab1__subtitle__text")].map(txt);
+  const dm = (tx[0] || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  o.date = dm ? ymd(dm[1], dm[2], dm[3]) : "";
+  const km = (tx[1] || "").match(/第(\d+)回\s*(\S+?)競馬\s*第(\d+)日/);
+  o.kai = km ? km[1] : ""; o.venue = km ? km[2] : ""; o.nichi = km ? km[3] : "";
+  const bottom = sub.querySelector(".nk23_c-tab1__subtitle__bottom");
+  const course = txt(bottom && bottom.querySelector("a"));
+  const cm = course.match(/^(\D+?)\s*([\d,]+)m\s*(?:（(.*?)）)?/);
+  o.surface = cm ? cm[1] : ""; o.dist = cm ? cm[2].replace(/,/g, "") : ""; o.inout = cm && cm[3] ? cm[3] : "";
+  o.course_raw = course;
+  const bt = txt(bottom);
+  const hm = bt.match(/（(\d+)頭）/); o.heads_card = hm ? hm[1] : "";
+  const tm = bt.match(/発走時刻\s*(\d{1,2}:\d{2})/); o.post_time = tm ? tm[1] : "";
+  o.title_raw = txt(doc.querySelector("h3.nk23_c-tab1__title .nk23_c-tab1__title__text"));
+  const gr = doc.querySelector(".nk23_c-tab1__accor__grtext .nk23_c-tab1__texts__gr");
+  const g = gr ? [...gr.querySelectorAll(":scope > .nk23_c-tab1__text")].map(txt) : [];
+  for (let i = 0; i < 5; i++) o["cond" + (i + 1)] = g[i] || "";
+  o.cond_raw = g.filter(Boolean).join(" / ");
+  const pz = txt(doc.querySelector(".nk23_c-tab1__accor__grtext")).match(/1着([\d,]+)円/);
+  o.prize1 = pz ? pz[1].replace(/,/g, "") : "";
+  return o;
+}
+
+/* ---------- 出走表: 基本の表 ---------- */
+function parseBasic(doc) {
+  const t = [...doc.querySelectorAll("table.nk23_c-table23__table")].find(x => x.querySelectorAll("tr").length > 1);
+  const out = []; if (!t) return out;
+  let waku = "";
+  for (const tr of t.querySelectorAll("tr")) {
+    let tds = [...tr.children].filter(x => x.tagName === "TD");
+    if (tds.length < 10) continue;
+    if (tds[0].hasAttribute("rowspan")) { waku = txt(tds[0]); tds = tds.slice(1); }
+    const h = {};
+    h.waku = waku; h.num_raw = txt(tds[0]);
+    const na = tds[1].querySelector("a");
+    h.horse_id = idFrom(na, /uma_info\/(\d+)/); h.name = txt(na) || txt(tds[1]);
+    h.birth_raw = txt(tds[1].querySelector(".nk23_c-table23__txt3"));
+    const sx = brParts(tds[2]); h.sexage = sx[0] || ""; h.color = sx[1] || "";
+    const bw = brParts(tds[4]); h.bw = numOr(bw[0]); h.bw_diff_raw = bw[1] || "";
+    const kt = txt(tds[5]); h.kin = numOr(kt.replace(/[^\d.]/g, "")); h.gen_mark = (kt.match(/[▲△☆◇★]/) || [""])[0];
+    const ja = tds[6].querySelector("a");
+    h.jockey_id = idFrom(ja, /kis_info\/(\w+)/); h.jockey = txt(ja);
+    h.jockey_aff = (txt(tds[6]).match(/\(([^)]*)\)\s*$/) || ["", ""])[1];
+    const pm = brParts(tds[7]); h.sire = pm[0] || ""; h.dam = pm[1] || "";
+    const ta = tds[8].querySelector("a");
+    h.trainer_id = idFrom(ta, /cho_info\/(\w+)/); h.trainer = txt(ta);
+    h.trainer_aff = (txt(tds[8]).match(/\(([^)]*)\)\s*$/) || ["", ""])[1];
+    const ps = [...tds[9].querySelectorAll("p")].map(txt);
+    h.owner = ps[0] || ""; h.breeder = ps[1] || "";
+    h.row_text = txt(tr);
+    out.push(h);
+  }
+  return out;
+}
+
+/* ---------- 出走表: 過去走の欄 ---------- */
+function parseRun(td) {
+  const r = { exists: "0", abnormal: "", date: "", date_src: "", race_id: "", rno: "", venue: "", region: "", nankan4: "",
+    dist: "", surface: "", inout: "", course_raw: "", baba: "", title_raw: "", label_raw: "", heads: "", num: "", waku: "",
+    fin: "", fin_raw: "", pop: "", jockey: "", gen_mark: "", kin: "", bw: "", time: "", time_raw: "", margin: "",
+    l3f: "", l3f_rank: "", pass_raw: "", pass1: "", pass2: "", pass3: "", pass4: "", pass_n: "", pass_last: "", winner: "", raw: "" };
+  if (!td) return r;
+  const all = txt(td);
+  if (!all || all === "-" || all === "--") return r;
+  r.exists = "1"; r.raw = all.slice(0, 300);
+  if (/初出走時勝率/.test(all)) { r.abnormal = "初出走欄"; return r; }
+  const fl = td.querySelector("p.nk23_u-d-flex");
+  const sp = fl ? [...fl.children].filter(x => x.tagName === "SPAN") : [];
+  r.fin_raw = txt(sp[0]).replace(/\s*着$/, "");
+  const vd = txt(sp[1]);
+  const vm = vd.match(/^(\D+?)(\d{2})\.(\d{1,2})\.(\d{1,2})$/);
+  if (vm) { r.venue = vm[1]; }
+  const crs = txt(sp[2]);                                   // 「良外ダ 1200」「稍内芝 1600」「800」（能試）
+  r.course_raw = crs;
+  const cm = crs.match(/^(良|稍|重|不)?(内|外)?(ダ|芝|障)?\s*(\d{3,4})$/);
+  if (cm) { r.baba = cm[1] || ""; r.inout = cm[2] || ""; r.surface = cm[3] || ""; r.dist = cm[4]; }
+  if (/能試/.test(r.fin_raw)) r.abnormal = "能試";
+  else if (!/^\d+$/.test(r.fin_raw)) r.abnormal = r.fin_raw || "不明";
+  else r.fin = r.fin_raw;
+  // 日付: rcd（南関東）→ 欄の表記（他地区・中央）
+  const rcd = td.querySelector("input[id^='rcd_']");
+  if (rcd && /^\d{8}$/.test(rcd.value || "")) { r.date = rcd.value; r.date_src = "rcd"; }
+  else if (vm) { r.date = ymd(2000 + +vm[2], vm[3], vm[4]); r.date_src = "表記"; }
+  // レースID: 結果へのリンク → rc の値
+  const a = td.querySelector("a.race_name_len") || td.querySelector("a[href*='/result/']");
+  if (a) r.race_id = idFrom(a, /result\/(\d{16})/);
+  if (!r.race_id) { const ip = td.querySelector("input[id^='rc_']"); if (ip && /^\d{16}$/.test(ip.value || "")) r.race_id = ip.value; }
+  if (r.race_id) r.rno = String(+r.race_id.slice(14, 16));
+  const nm = td.querySelector(".race_name_len");
+  if (nm) { r.title_raw = nm.getAttribute("title") || ""; r.label_raw = txt(nm); }
+  r.region = REGION[r.venue] || (r.venue ? "不明" : "");
+  r.nankan4 = r.region === "南関東" ? r.venue : "";
+  const pop = td.querySelector("span.popularity");
+  if (pop) {
+    const t = txt(pop);
+    r.heads = (t.match(/(\d+)頭/) || ["", ""])[1]; r.num = (t.match(/(\d+)番/) || ["", ""])[1]; r.pop = (t.match(/(\d+)人気/) || ["", ""])[1];
+    const jk = pop.nextElementSibling;
+    if (jk) {
+      let jt = txt(jk);
+      const mk = jt.match(/^([▲△☆◇★])\s*(.*)$/); if (mk) { r.gen_mark = mk[1]; jt = mk[2]; }
+      const m = jt.match(/^(.*?)\s*(\d+(?:\.\d)?)$/);
+      if (m) { r.jockey = m[1]; r.kin = m[2]; } else r.jockey = jt;
+    }
+  }
+  r.waku = wakuOf(r.num, r.heads);
+  r.bw = numOr(txt(td.querySelector("span.weight")).replace(/kg$/, ""));
+  r.winner = txt(td.querySelector("span.winner"));
+  const rt = txt(td.querySelector("span.racetime")); const rm = rt.match(/^(\S+)\s*(?:\(([^)]*)\))?/);
+  if (rm) { r.time_raw = rm[1]; r.time = timeSec(rm[1]); r.margin = numOr(rm[2] || ""); }
+  const ft = txt(td.querySelector("span.furlongtime")); const fm = ft.match(/3F\s*([\d.]+)\s*(?:\((\d+)\))?/);
+  if (fm) { r.l3f = fm[1]; r.l3f_rank = fm[2] || ""; }
+  const pos = td.querySelector("p.position");
+  if (pos) {
+    const ps = [...pos.querySelectorAll("span")].map(txt).filter(Boolean);
+    r.pass_raw = ps.join(" "); r.pass_n = ps.length ? String(ps.length) : "";
+    ps.slice(0, 4).forEach((v, i) => r["pass" + (i + 1)] = numOr(v));
+    r.pass_last = ps.length ? numOr(ps[ps.length - 1]) : "";
+  }
+  return r;
+}
+
+/* ---------- 出走表: 詳細の表 ---------- */
+const A_CELLS = [["a_besttime", "mk-btm"], ["a_dist_rec", "mk-oky"], ["a_venue_rec", "mk-ojo"], ["a_jky_rec", "mk-kwc"], ["a_jky_pct", "mk-kwp"],
+  ["a_baba_rec", "mk-baba"], ["a_intv_rec", "mk-intv"], ["a_sire", "mk-sire"], ["a_season_rec", "mk-kise"], ["a_jky_course", "mk-kco"],
+  ["a_ret_horse", "mk-hrtn"], ["a_ret_jky", "mk-krtn"], ["a_ai_course", "cs-ai1"], ["a_ai_trainer", "cs-ai2"], ["a_bw_win", "mk-wre"]];
+function cellRaw(td) {
+  if (!td) return "";
+  const ps = [...td.querySelectorAll("p")];
+  if (ps.length) return ps.map(p => norm(p.innerHTML.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ")) || "_").join(" | ");
+  return txt(td);
+}
+function parseDetail(doc) {
+  const t = doc.querySelector("table.tb-shousai");
+  const out = []; if (!t) return { rows: out, labels: "" };
+  const labs = [];
+  for (const th of t.querySelectorAll("th")) {
+    const cls = [...th.classList].find(c => /^cs-/.test(c)); const tt = txt(th);
+    if (cls && /\d{3,4}|浦和|良|日未満|月～|今回騎手|単勝/.test(tt) && tt.length < 120) labs.push(cls + "=" + tt);
+  }
+  for (const tr of t.querySelectorAll("tr")) {
+    const ub = tr.querySelector("td.umaban"); if (!ub) continue;
+    const d = {}; d.num_raw = txt(ub);
+    const nm = tr.querySelector("td.pr-umaName-textRound");
+    const na = nm ? nm.querySelector("a") : null; d.horse_id = idFrom(na, /uma_info\/(\d+)/);
+    const ps = nm ? [...nm.querySelectorAll("p.nk23_u-text10")].map(txt) : [];
+    const bms = ps.find(s => /^（.*）$/.test(s)); d.damsire = bms ? bms.slice(1, -1) : "";
+    const g1 = tr.querySelector("td.cs-g1");
+    const gp = g1 ? [...g1.querySelectorAll("p.nk23_c-table22__Grouptxt")] : [];
+    d.gen_mark = ""; if (gp[0]) { const m = txt(gp[0]).match(/^([▲△☆◇★])/); if (m) d.gen_mark = m[1]; }
+    d.kin_detail = gp[0] ? numOr(txt(gp[0].querySelector(".nk23_u-text12"))) : "";
+    const lic = tr.querySelector("input[name='jockey_license']"); d.jockey_lic = lic ? lic.value : "";
+    const g2 = tr.querySelector("td.cs-g2"); const bw = brParts(g2); d.bw = numOr(bw[0]); d.bw_diff_raw = bw[1] || "";
+    d.runs = [1, 2, 3, 4, 5].map(k => parseRun(tr.querySelector("td.cs-z" + k)));
+    A_CELLS.forEach(([c, cls]) => d[c] = cellRaw(tr.querySelector("td." + cls)));
+    out.push(d);
+  }
+  return { rows: out, labels: labs.join(" || ") };
+}
+
+/* ---------- 結果 ---------- */
+function parseResult(doc) {
+  const o = { rows: new Map(), weather: "", baba: "", tan: new Map(), fuku: new Map(), wins: 0 };
+  const lab = doc.querySelector("p.nk23_c-table01__txt");
+  const lt = txt(lab) || txt(doc.body).slice(0, 20000);
+  const w = lt.match(/天候:\s*(\S+)/); o.weather = w ? w[1] : "";
+  const b = lt.match(/馬場:\s*(\S+\s*\S+)/); o.baba = b ? b[1] : "";
+  const t = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /馬名/.test(txt(x.querySelector("tr"))) && /人気/.test(txt(x.querySelector("tr"))));
+  if (t) {
+    let prevFin = "";
+    for (const tr of [...t.querySelectorAll("tr")].slice(1)) {
+      const tds = [...tr.children].filter(x => x.tagName === "TD");
+      if (tds.length < 15) continue;
+      const v = tds.map(txt);
+      const r = { fin_raw: v[0], waku: v[1], num: v[2], horse_id: idFrom(tds[3].querySelector("a"), /uma_info\/(\d+)/),
+        kin: numOr(v[5]), bw: numOr(v[6].replace(/kg$/, "")), bw_diff_raw: v[7], time_raw: v[10], margin_raw: v[11],
+        l3f: numOr(v[12]), pass_raw: v[13], pop: numOr(v[14]) };
+      r.fin = /^\d+$/.test(r.fin_raw) ? r.fin_raw : (/同着/.test(r.fin_raw) && prevFin ? prevFin : "");   // 「同着」は上の行と同じ着順
+      if (r.fin) prevFin = r.fin;
+      if (r.fin === "1") o.wins++;
+      if (r.num) o.rows.set(r.num, r);
+    }
+  }
+  const pt = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /組番/.test(txt(x.querySelector("tr"))) && /単勝/.test(txt(x)) && x.querySelectorAll("tr").length > 6);
+  o.pay_found = !!pt;
+  if (pt) {
+    let kind = "";
+    for (const tr of pt.querySelectorAll("tr")) {
+      const cells = [...tr.children];
+      if (cells.length && cells[0].tagName === "TH") { kind = txt(cells[0]); cells.shift(); }
+      const v = cells.map(txt);
+      if (v.length >= 2 && /^\d+$/.test(v[0])) {
+        const amt = v[1].replace(/[,円]/g, "");
+        if (kind === "単勝") o.tan.set(v[0], amt); else if (kind === "複勝") o.fuku.set(v[0], amt);
+      }
+    }
+  }
+  return o;
+}
+function bwDiff(s) { s = (s || "").replace("＋", "+").replace(/[－−]/g, "-"); if (/±\s*0/.test(s)) return "0"; const m = s.match(/^([+-]?\d+)$/); return m ? String(+m[1]) : ""; }
+
+/* ---------- 列 ---------- */
+const R_COLS = ["race_id", "date", "venue", "kai", "nichi", "rno", "post_time", "dist", "surface", "inout", "course_raw", "title_raw", "cond_raw",
+  "cond1", "cond2", "cond3", "cond4", "cond5", "prize1", "heads_card", "heads", "n_scratched", "baba", "weather", "lab_raw"].map(c => "r_" + c);
+const H_COLS = ["num", "waku", "horse_id", "name", "sex", "age", "birth", "birth_raw", "color", "sire", "dam", "damsire", "jockey", "jockey_id", "jockey_aff", "gen_mark",
+  "kin", "trainer", "trainer_id", "trainer_aff", "owner", "breeder", "bw", "bw_diff", "scratched"].map(c => "h_" + c);
+const A_COLS = A_CELLS.map(x => x[0]);
+const PK = ["exists", "abnormal", "date", "date_src", "race_id", "rno", "venue", "region", "nankan4", "dist", "surface", "inout", "course_raw", "baba",
+  "title_raw", "label_raw", "heads", "num", "waku", "fin", "fin_raw", "pop", "jockey", "gen_mark", "kin", "bw", "time", "time_raw", "margin", "l3f", "l3f_rank",
+  "pass_raw", "pass1", "pass2", "pass3", "pass4", "pass_n", "pass_last", "winner", "raw", "link", "prize1", "link_title_raw", "link_cond_raw", "link_weather", "link_baba"];
+const DK = ["days", "dist_diff", "venue_change", "surface_change", "region_change", "jockey_same", "kin_diff", "bw_diff", "age"];
+const D_COLS = ["d_gap12", "d_gap23", "d_gap34", "d_gap45", "d1_dist_change", "d_n_runs5", "d_n_nankan5", "d_runs_since_transfer"];
+const Y_COLS = ["fin", "fin_raw", "margin_raw", "time", "time_raw", "l3f", "pass_raw", "pop", "bw", "bw_diff", "tan_pay", "fuku_pay", "dead_heat", "res_found"].map(c => "y_" + c);
+const PCOLS = []; for (let k = 1; k <= 5; k++) PK.forEach(f => PCOLS.push("p" + k + "_" + f));
+const DKCOLS = []; for (let k = 1; k <= 5; k++) DK.forEach(f => DKCOLS.push("d" + k + "_" + f));
+const HCOLS = [...R_COLS, ...H_COLS, ...A_COLS, ...PCOLS, ...DKCOLS, ...D_COLS, ...Y_COLS];
+const PRCOLS = ["r_race_id", "r_date", "h_num", "h_horse_id", "k", ...PK.map(f => "p_" + f), ...DK.map(f => "d_" + f), "y_fin"];
+const esc = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+
+/* card_rows 1 (2026-11-18)  出走表1枚 → 学習用テーブル（horses.csv）と同じ形の行。
+   v50_learn_table.html の「2回目: 1頭1行を作る」を、出走表だけ（結果なし・ほかのレースとのつながりなし）で行うもの。
+   M1 v2 に使う列（r_*・h_*・p1〜p5 の欄）は、学習用テーブルと同じ作り方。結果（y_*）とつながりの列（link・prize1 など）は空にする。
+   learn_core.js（学習用テーブルのページの関数をそのまま切り出したもの）の後に読み込む。 */
+function cardRows(rid, html, doc) {
+  const prob = [];
+  if (!/レース情報/.test(doc.title || "")) return { rows: [], prob: [rid + ": 出走表のページではない（題名: " + doc.title + "）"] };
+  const prid = (html.match(/program_id\s*=\s*"(\d{16})"/) || html.match(/id="_cc_proId"\s+value="(\d{16})"/) || ["", ""])[1];
+  if (prid && prid !== rid) return { rows: [], prob: [rid + ": ファイル名とページの中のレースID（" + prid + "）が違う"] };
+  const hd = parseHeader(doc);
+  if (!hd) return { rows: [], prob: [rid + ": 見出し（日付・場・距離）が読めない"] };
+  const basic = parseBasic(doc), det = parseDetail(doc);
+  if (!basic.length) return { rows: [], prob: [rid + ": 出走表の馬の表が読めない"] };
+  const detById = new Map(), detByNum = new Map();
+  det.rows.forEach(d => { if (d.horse_id) detById.set(d.horse_id, d); detByNum.set(d.num_raw, d); });
+  const nScr = basic.filter(h => !/^\d+$/.test(h.num_raw) || /取消|除外/.test(h.row_text)).length;
+  const heads = basic.length - nScr;
+  if (det.rows.length !== basic.length) prob.push(rid + ": 基本の表 " + basic.length + "頭・詳細の表 " + det.rows.length + "頭で数が違う");
+  const race = { r_race_id: rid, r_heads: heads, r_n_scratched: nScr, r_lab_raw: det.labels, r_baba: "", r_weather: "" };
+  ["date", "venue", "kai", "nichi", "rno", "post_time", "dist", "surface", "inout", "course_raw", "title_raw", "cond_raw", "cond1", "cond2", "cond3", "cond4", "cond5", "prize1", "heads_card"]
+    .forEach(c => race["r_" + c] = hd[c]);
+  const rows = [];
+  for (const h of basic) {
+    const d = (h.horse_id && detById.get(h.horse_id)) || detByNum.get(h.num_raw) || null;
+    if (!d) prob.push(rid + ": 馬 " + h.name + " の詳細の行が見つからない");
+    const scratched = !/^\d+$/.test(h.num_raw) || /取消|除外/.test(h.row_text) || (d && !/^\d+$/.test(d.num_raw));
+    const row = Object.assign({}, race);
+    const sa = h.sexage.match(/^(\D+?)(\d+)$/);
+    const bm = h.birth_raw.match(/^(\d{2})\.(\d{1,2})\.(\d{1,2})/);
+    const birth = bm ? ymd(2000 + +bm[1], bm[2], bm[3]) : "";
+    Object.assign(row, { h_num: /^\d+$/.test(h.num_raw) ? h.num_raw : "", h_waku: h.waku, h_horse_id: h.horse_id, h_name: h.name,
+      h_sex: sa ? sa[1] : "", h_age: sa ? sa[2] : "", h_birth: birth, h_color: h.color, h_sire: h.sire, h_dam: h.dam, h_damsire: d ? d.damsire : "",
+      h_jockey: h.jockey, h_jockey_id: h.jockey_id || (d ? d.jockey_lic : ""), h_jockey_aff: h.jockey_aff, h_gen_mark: h.gen_mark || (d ? d.gen_mark : ""), h_birth_raw: h.birth_raw,
+      h_kin: h.kin || (d ? d.kin_detail : ""), h_trainer: h.trainer, h_trainer_id: h.trainer_id, h_trainer_aff: h.trainer_aff,
+      h_owner: h.owner, h_breeder: h.breeder, h_bw: h.bw || (d ? d.bw : ""), h_bw_diff: bwDiff(h.bw_diff_raw || (d ? d.bw_diff_raw : "")),
+      h_scratched: scratched ? "1" : "0" });
+    A_COLS.forEach(c => row[c] = d ? d[c] : "");
+    const runs = d ? d.runs : [1, 2, 3, 4, 5].map(() => parseRun(null));
+    runs.forEach((r, j) => {
+      const k = j + 1;
+      r.link = "なし"; r.prize1 = ""; r.link_title_raw = ""; r.link_cond_raw = ""; r.link_weather = ""; r.link_baba = "";
+      PK.forEach(f => row["p" + k + "_" + f] = r[f]);
+      const ok = r.exists === "1" && r.abnormal !== "初出走欄";
+      const dd = {
+        days: ok ? daysBetween(r.date, hd.date) : "",
+        dist_diff: ok && r.dist && hd.dist ? String(+hd.dist - +r.dist) : "",
+        venue_change: ok && r.venue ? (r.venue !== hd.venue ? "1" : "0") : "",
+        surface_change: ok && r.surface && hd.surface ? (r.surface !== hd.surface ? "1" : "0") : "",
+        region_change: ok && r.region ? (r.region !== "南関東" ? "1" : "0") : "",
+        jockey_same: ok && r.jockey && row.h_jockey ? (row.h_jockey.replace(/\s/g, "").startsWith(r.jockey.replace(/\s/g, "")) ? "1" : "0") : "",
+        kin_diff: ok && r.kin && row.h_kin ? (+row.h_kin - +r.kin).toFixed(1) : "",
+        bw_diff: ok && r.bw && row.h_bw ? String(+row.h_bw - +r.bw) : "",
+        age: ok && r.date && birth ? String(+r.date.slice(0, 4) - +birth.slice(0, 4)) : "" };
+      DK.forEach(f => row["d" + k + "_" + f] = dd[f]);
+    });
+    const act = runs.map(r => r.exists === "1" && r.abnormal === "");
+    for (let k = 1; k <= 4; k++) row["d_gap" + k + (k + 1)] = runs[k - 1].date && runs[k].date ? daysBetween(runs[k].date, runs[k - 1].date) : "";
+    const r1 = runs[0];
+    row.d1_dist_change = act[0] && r1.dist && hd.dist ? (+hd.dist > +r1.dist ? "延長" : +hd.dist < +r1.dist ? "短縮" : "同じ") : "";
+    row.d_n_runs5 = String(act.filter(Boolean).length);
+    row.d_n_nankan5 = String(runs.filter((r, j) => act[j] && r.region === "南関東").length);
+    let tr = ""; let c = 0;
+    for (let j = 0; j < 5; j++) { if (!act[j]) continue; c++; if (runs[j].region && runs[j].region !== "南関東") { tr = String(c); break; } }
+    row.d_runs_since_transfer = tr;
+    Y_COLS.forEach(cn => row[cn] = "");
+    rows.push(row);
+  }
+  return { rows, prob };
+}
+/* 行 → CSV の文字（列は HCOLS の順。学習用テーブルと同じ） */
+function rowsCsv(rows) {
+  return [HCOLS.join(",")].concat(rows.map(r => HCOLS.map(cn => esc(r[cn])).join(","))).join("\n") + "\n";
+}
+
+return { cardRows, rowsCsv, HCOLS };
+})();
+</script>
+<script>
+const VERSION = "m1v3-form-1 (2026-11-24)";
+const CSHA = "b43acdbe33cd7ad975796e0b3c0598d42967d4455f705ee61cfd16a43299d75a";
+const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
+const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
+let py = null, runFn = null, coefOK = false;
+const RES = [];
+const $ = id => document.getElementById(id);
+const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const sg = (v, d) => v == null ? "" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d == null ? 2 : d);
+const pct = v => v == null ? "" : (100 * v).toFixed(1) + "%";
+const nowStamp = d => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+function saveBytes(bytes, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: "text/csv" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+const yieldNow = () => new Promise(r => setTimeout(r, 0));
+function refresh(){ $("bRun").disabled = !(py && coefOK && $("fRace").files.length); }
+$("fRace").addEventListener("change", refresh);
+$("fOdds").addEventListener("change", () => { $("oddsCnt").textContent = $("fOdds").files.length + "件"; });
+
+async function boot(){
+  try{
+    py = await loadPyodide();
+    $("boot").textContent = "部品（numpy・pandas）を読み込んでいます…";
+    await py.loadPackage(["numpy", "pandas"]);
+    py.FS.mkdirTree("/v50");
+    for (const n of ["m1v2", "m1v3", "m1v3form"]) py.FS.writeFile("/v50/" + n + ".py", $("py-" + n).textContent);
+    py.runPython("import sys\nsys.path.insert(0, '/v50')\nimport m1v3form as MF");
+    $("boot").innerHTML = '<span class="ok">準備ができました。</span>';
+    refresh();
+  }catch(e){
+    py = null; $("boot").innerHTML = '<span class="bad">準備に失敗しました:</span> ' + escH(e) + '（インターネットにつながっているか確かめて、ページを開き直してください）';
+  }
+}
+boot();
+
+$("fCoef").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return; coefOK = false; refresh();
+  const buf = new Uint8Array(await f.arrayBuffer());
+  const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
+  if (h !== CSHA){ $("coefSt").innerHTML = '<span class="bad">SHA-256 が一致しません（' + h.slice(0, 8) + '…）。このページの係数のファイルではないので使いません。</span>'; return; }
+  while (!py) await new Promise(r => setTimeout(r, 300));
+  try {
+    py.FS.writeFile("/v50/coef.json", buf);
+    py.runPython("MF.COEF_SHA = '" + CSHA + "'\nMF.load('/v50/coef.json')");
+    runFn = py.runPython("def _run(p, rid, op):\n    return MF.run(p, rid, op or '')\n_run");
+    coefOK = true; $("coefSt").innerHTML = '<span class="ok">係数を確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>';
+  } catch (err) { $("coefSt").innerHTML = '<span class="bad">係数の確認で止まりました: ' + escH(err) + '</span>'; }
+  refresh();
+});
+
+async function decodeCard(f){
+  const buf = await f.arrayBuffer(); let s;
+  try { s = new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch (e) { s = new TextDecoder("shift_jis").decode(buf); }
+  return s;
+}
+
+// 並べ替えのできる表
+function sortable(tbl){
+  const ths = [...tbl.tHead.rows[0].cells];
+  ths.forEach((th, i) => th.addEventListener("click", () => {
+    const dir = th.classList.contains("asc") ? -1 : 1;
+    ths.forEach(t => t.classList.remove("asc", "desc")); th.classList.add(dir > 0 ? "asc" : "desc");
+    const body = tbl.tBodies[0], rows = [...body.rows].filter(r => !r.dataset.fixed), fixed = [...body.rows].filter(r => r.dataset.fixed);
+    const key = r => { const v = r.cells[i].dataset.v; return v === undefined ? r.cells[i].textContent : (v === "" ? null : Number(v)); };
+    rows.sort((a, b) => { const x = key(a), y = key(b);
+      if (x === null && y === null) return 0; if (x === null) return 1; if (y === null) return -1;
+      return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "ja")) * dir; });
+    rows.concat(fixed).forEach(r => body.appendChild(r));
+  }));
+}
+const td = (text, v, cls) => '<td' + (cls ? ' class="' + cls + '"' : '') + ' data-v="' + (v == null ? "" : v) + '">' + text + '</td>';
+
+function formHtml(J){
+  const sel = $("selForm").value, F = J.forms[sel];
+  if (J.mode === "混在") return '<p class="note">初出走の馬が混ざるレースなので、フォーメーションは出しません。</p>';
+  if (!F) return '<p class="note">フォーメーションを出せません。</p>';
+  let h = '<div class="scroll"><table><thead><tr><th class="l">券種</th><th>1着 a</th><th>2着 b</th><th class="l">3着 C</th><th class="l">買い目</th><th>点数</th><th>金額</th></tr></thead><tbody>';
+  let pts = 0;
+  F.forEach(x => { pts += x.tickets.length;
+    h += '<tr><td class="l">' + x.kind + '</td><td>' + x.a + '</td><td>' + x.b + '</td><td class="l">' + (x.C.length ? x.C.join("・") : (J.odds ? "–" : "oddsJS なし")) + '</td><td class="l w">' +
+         (x.tickets.length ? escH(x.tickets.join("　")) : "–") + '</td><td>' + x.tickets.length + '</td><td>' + (x.tickets.length * 100).toLocaleString() + '円</td></tr>'; });
+  h += '<tr><td class="l"><b>合計</b></td><td></td><td></td><td></td><td></td><td><b>' + pts + '</b></td><td><b>' + (pts * 100).toLocaleString() + '円</b></td></tr></tbody></table></div>';
+  if (!J.odds) h += '<p class="note bad">oddsJS が無いので、3着 C（人気1〜5位）を出せません。</p>';
+  return h;
+}
+
+function raceHtml(J, rid){
+  const I = J.info || {};
+  let h = '<h2>' + escH((I.r_venue || "") + " " + (I.r_rno || "") + "R　" + (I.r_surface || "") + (I.r_dist || "") + "m" + (I.r_heads ? "・" + I.r_heads + "頭" : "")) + '<span class="rid">' + rid + (I.r_post_time ? "　発走 " + escH(I.r_post_time) : "") + (I.r_title_raw ? "　" + escH(I.r_title_raw) : "") + '</span></h2>';
+  h += J.odds ? '<p class="note">oddsJS: 更新 ' + escH(J.odds.update) + '（状態 ' + escH(J.odds.status) + (J.odds.status === "2" ? '・<b class="bad">確定のオッズ。締切前の値ではない</b>' : '') + '）</p>' : '<p class="note">oddsJS なし（人気・単勝オッズは出しません）</p>';
+  if (J.mode === "新馬") return h + '<p class="note">全頭が初出走のレースなので、M1 v3 は計算しません。</p>';
+  if (!J.rows.length) return h + '<p class="note">計算できる馬がいません。</p>';
+  const mixed = J.mode === "混在";
+  h += '<h3>能力表（M1 v3 v1）</h3>';
+  if (mixed) h += '<p class="note"><b>初出走の馬が混ざるレース（参考）。</b>経験馬だけで順位を出し、勝つ確率は出しません。</p>';
+  h += '<div class="scroll"><table class="sort"><thead><tr><th>順位</th><th>馬番</th><th class="l">馬名</th><th>人気</th><th>単勝オッズ</th><th>合計点</th>' + (mixed ? '' : '<th>勝つ確率</th>') +
+       '<th>能力本体</th><th>今回の加減</th><th>格と対戦</th><th>格 R1</th><th>対戦 H1</th><th class="l">プラス要因</th><th class="l">マイナス要因</th></tr></thead><tbody>';
+  J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num).forEach(r => {
+    h += '<tr' + (r.rank <= 2 ? ' class="top"' : '') + '>' + td(r.rank, r.rank) + td(r.num, r.num) + td(escH(r.name), null, "l").replace(' data-v=""', '') + td(r.pop == null ? "" : r.pop, r.pop) + td(r.odds == null ? "" : r.odds.toFixed(1), r.odds) +
+         td(sg(r.total_d), r.total_d) + (mixed ? '' : td(pct(r.p), r.p)) + td(sg(r.abil_d), r.abil_d) + td(sg(r.today_d), r.today_d) + td(sg(r.match_d), r.match_d) +
+         td(r.r1 == null ? "記録なし" : r.r1.toFixed(2), r.r1) + td(r.h1 == null ? "対戦なし" : sg(r.h1), r.h1) +
+         '<td class="l" style="font-size:.78rem">' + escH(r.pos) + '</td><td class="l" style="font-size:.78rem">' + escH(r.neg) + '</td></tr>';
+  });
+  J.debut.forEach(x => { h += '<tr data-fixed="1"><td>–</td><td>' + x.num + '</td><td class="l">' + escH(x.name) + '</td><td colspan="' + (mixed ? 11 : 12) + '" class="l">対象外（初出走）</td></tr>'; });
+  h += '</tbody></table></div>';
+  if (J.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + J.dropped.join("・") + '）は除いて計算しました。</p>';
+  h += '<h3>フォーメーション表<span class="rid" data-formname="1"></span></h3><div class="form">' + formHtml(J) + '</div>';
+  return h;
+}
+
+function renderForms(){
+  document.querySelectorAll("section.race").forEach((sec, i) => {
+    const J = RES[i] && RES[i][1]; if (!J) return;
+    const d = sec.querySelector("div.form"); if (d) d.innerHTML = formHtml(J);
+    const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
+  });
+}
+$("selForm").addEventListener("change", renderForms);
+
+$("bRun").addEventListener("click", async () => {
+  $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; RES.length = 0;
+  const OD = new Map();
+  for (const f of $("fOdds").files){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
+  const files = [...$("fRace").files].map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  let i = 0;
+  for (const [f, rid] of files){
+    i++; $("status").textContent = i + " / " + files.length + " レース目を計算しています…"; await yieldNow();
+    const sec = document.createElement("section"); sec.className = "race"; $("out").appendChild(sec);
+    if (!rid){ sec.innerHTML = '<p class="bad">' + escH(f.name) + ': ファイル名にレースID（16桁）がありません。</p>'; RES.push([rid, null]); continue; }
+    try {
+      const html = await decodeCard(f), doc = new DOMParser().parseFromString(html, "text/html");
+      const cr = LT.cardRows(rid, html, doc);
+      if (!cr.rows.length){ sec.innerHTML = '<p class="bad">' + rid + ': 出走表を読めませんでした: ' + escH(cr.prob.join("；")) + '</p>'; RES.push([rid, null]); continue; }
+      py.FS.writeFile("/tmp/rows.csv", new TextEncoder().encode(LT.rowsCsv(cr.rows)));
+      const ofs = OD.get(rid) || []; let opath = "";
+      if (ofs.length){ const o = ofs.slice().sort((a, b) => a.name.localeCompare(b.name)).pop(); py.FS.writeFile("/tmp/odds.txt", new Uint8Array(await o.arrayBuffer())); opath = "/tmp/odds.txt"; }
+      const J = JSON.parse(runFn("/tmp/rows.csv", rid, opath));
+      if (ofs.length > 1) J.oddsNote = ofs.length;
+      RES.push([rid, J]); sec.innerHTML = raceHtml(J, rid) + (ofs.length > 1 ? '<p class="note">この レースの oddsJS が ' + ofs.length + ' 件あったので、ファイル名の順でいちばん後のもの（いちばん新しいもの）を使いました。</p>' : '');
+      const t = sec.querySelector("table.sort"); if (t) sortable(t);
+      const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
+    } catch (e) { sec.innerHTML = '<p class="bad">' + rid + ': 計算で止まりました: ' + escH(e) + '</p>'; RES.push([rid, null]); }
+  }
+  $("status").textContent = "終わりました（" + files.length + " レース）。";
+  $("bCsv").disabled = !RES.some(x => x[1] && x[1].rows.length); refresh();
+});
+
+function csvText(){
+  const L = [["race_id", "mode", "rank", "num", "name", "pop", "odds", "total", "total_centered", "p_win", "ability_centered", "today_centered", "match_centered", "r1_raw", "h1_raw", "plus", "minus"].concat(COLS, ["page_ver"]).join(",")];
+  RES.forEach(([rid, J]) => { if (!J) return; J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num).forEach(r =>
+    L.push([rid, J.mode, r.rank, r.num, r.name, r.pop, r.odds, r.total, r.total_d, r.p, r.abil_d, r.today_d, r.match_d, r.r1, r.h1, r.pos, r.neg].concat(r.x, [VERSION]).map(escC).join(","))); });
+  L.push(""); L.push(["race_id", "coef", "type", "a", "b", "C", "tickets", "points", "page_ver"].join(","));
+  RES.forEach(([rid, J]) => { if (!J) return; Object.entries(J.forms).forEach(([name, F]) => F.forEach(x =>
+    L.push([rid, name, x.kind, x.a, x.b, x.C.join(" "), x.tickets.join(" "), x.tickets.length, VERSION].map(escC).join(",")))); });
+  return "﻿" + L.join("\r\n") + "\r\n";
+}
+$("bCsv").onclick = () => saveBytes(new TextEncoder().encode(csvText()), "m1v3form_" + nowStamp(new Date()) + ".csv");
+(function(){ const s = $("selForm");
+  ["回収率最大化 L2=0.001（券種ごとの係数）", "回収率最大化 L2=0.001（全券種の合計向け）", "M1 v3 正式"].forEach(n => { const o = document.createElement("option"); o.value = n; o.textContent = n; s.appendChild(o); }); })();
+</script>
+</body></html>
