@@ -24,9 +24,15 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.1 (2026-11-24)　自分用・試し</div>
+<section id="ghSec">
+<h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
+<div id="ghBody" class="note">準備しています…</div>
+<div class="row" id="ghTokRow" style="display:none"><input type="password" id="ghTok" placeholder="読み取り専用のトークン" autocomplete="off" style="flex:1;min-width:12em;font:inherit;padding:6px 8px"><button id="ghSave">覚えさせる</button></div>
+<p class="note">keiba-data（非公開）の fwd/＜日付＞/pre/ から出走表（card_）と oddsJS（oddspre_）を、fwd/code/m1v3form/ から係数を読みます。読むだけです。トークンは keiba-data の Contents の読み取りだけを許したもの。この端末のこのブラウザだけが覚えます（見通しのページと共通）。<a href="#" id="ghForget">トークンを忘れさせる</a></p>
+</section>
 <section>
-<h2>1. 係数のファイルを選ぶ</h2>
+<h2>1. 係数のファイルを選ぶ（GitHub から読むときは不要）</h2>
 <div class="row"><input type="file" id="fCoef" accept=".json,application/json"></div>
 <div id="coefSt" class="note">m1v3form_coef.json（SHA-256 が b43acdbe… のときだけ使います）。中身は M1 v3 v1 正式の係数と、回収率最大化 L2=0.001 の係数（9券種と合計の10組）。</div>
 <h2 style="margin-top:12px">2. 出走表を選ぶ</h2>
@@ -968,7 +974,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1 (2026-11-24)";
+const VERSION = "m1v3-form-1.1 (2026-11-24)";
 const CSHA = "b43acdbe33cd7ad975796e0b3c0598d42967d4455f705ee61cfd16a43299d75a";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -1002,9 +1008,8 @@ async function boot(){
 }
 boot();
 
-$("fCoef").addEventListener("change", async e => {
-  const f = e.target.files[0]; if (!f) return; coefOK = false; refresh();
-  const buf = new Uint8Array(await f.arrayBuffer());
+async function loadCoef(buf){
+  coefOK = false; refresh();
   const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
   if (h !== CSHA){ $("coefSt").innerHTML = '<span class="bad">SHA-256 が一致しません（' + h.slice(0, 8) + '…）。このページの係数のファイルではないので使いません。</span>'; return; }
   while (!py) await new Promise(r => setTimeout(r, 300));
@@ -1014,8 +1019,9 @@ $("fCoef").addEventListener("change", async e => {
     runFn = py.runPython("def _run(p, rid, op):\n    return MF.run(p, rid, op or '')\n_run");
     coefOK = true; $("coefSt").innerHTML = '<span class="ok">係数を確かめました（SHA-256 ' + h.slice(0, 8) + '…）。</span>';
   } catch (err) { $("coefSt").innerHTML = '<span class="bad">係数の確認で止まりました: ' + escH(err) + '</span>'; }
-  refresh();
-});
+  refresh(); return coefOK;
+}
+$("fCoef").addEventListener("change", async e => { const f = e.target.files[0]; if (f) await loadCoef(new Uint8Array(await f.arrayBuffer())); });
 
 async function decodeCard(f){
   const buf = await f.arrayBuffer(); let s;
@@ -1086,11 +1092,12 @@ function renderForms(){
 }
 $("selForm").addEventListener("change", renderForms);
 
-$("bRun").addEventListener("click", async () => {
+$("bRun").addEventListener("click", () => runWith([...$("fRace").files], [...$("fOdds").files]));
+async function runWith(raceFiles, oddsFiles){
   $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; RES.length = 0;
   const OD = new Map();
-  for (const f of $("fOdds").files){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
-  const files = [...$("fRace").files].map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  for (const f of oddsFiles){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
+  const files = raceFiles.map(f => [f, (f.name.match(/(\d{16})/) || [])[1]]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   let i = 0;
   for (const [f, rid] of files){
     i++; $("status").textContent = i + " / " + files.length + " レース目を計算しています…"; await yieldNow();
@@ -1112,7 +1119,7 @@ $("bRun").addEventListener("click", async () => {
   }
   $("status").textContent = "終わりました（" + files.length + " レース）。";
   $("bCsv").disabled = !RES.some(x => x[1] && x[1].rows.length); refresh();
-});
+}
 
 function csvText(){
   const L = [["race_id", "mode", "rank", "num", "name", "pop", "odds", "total", "total_centered", "p_win", "ability_centered", "today_centered", "match_centered", "r1_raw", "h1_raw", "plus", "minus"].concat(COLS, ["page_ver"]).join(",")];
@@ -1123,6 +1130,71 @@ function csvText(){
     L.push([rid, name, x.kind, x.a, x.b, x.C.join(" "), x.tickets.join(" "), x.tickets.length, VERSION].map(escC).join(",")))); });
   return "﻿" + L.join("\r\n") + "\r\n";
 }
+
+// GitHub（keiba-data・非公開）から読む。読むだけ。トークンはこのブラウザの localStorage だけに置く（見通しのページと同じ名前）。
+const GH = { api: "https://api.github.com/repos/gomatoday/keiba-data/contents/", key: "fwd_ro_token", coef: "fwd/code/m1v3form/m1v3form_coef.json" };
+const tokGet = () => { try { return localStorage.getItem(GH.key) || ""; } catch (e) { return ""; } };
+const tokSet = v => { try { if (v) localStorage.setItem(GH.key, v); else localStorage.removeItem(GH.key); return true; } catch (e) { return false; } };
+async function ghGet(path, raw){
+  const r = await fetch(GH.api + path.split("/").map(encodeURIComponent).join("/"),
+    { headers: { Authorization: "Bearer " + tokGet(), Accept: raw ? "application/vnd.github.raw" : "application/vnd.github+json" }, cache: "no-store" });
+  if (!r.ok){ const e = new Error(path + " を読めません（HTTP " + r.status + "）"); e.status = r.status; throw e; }
+  return raw ? new Uint8Array(await r.arrayBuffer()) : r.json();
+}
+const jstDay = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }).replace(/-/g, "");
+const tsShow = s => s.slice(8, 10) + ":" + s.slice(10, 12) + ":" + s.slice(12, 14);
+function ghMsg(h){ $("ghBody").innerHTML = h; }
+async function ghStart(){
+  const q = new URLSearchParams(location.search);
+  const rid = (q.get("rid") || "").match(/^\d{16}$/) ? q.get("rid") : "", t = (q.get("t") || "").match(/^\d{14}$/) ? q.get("t") : "";
+  const day = rid ? rid.slice(0, 8) : ((q.get("d") || "").match(/^\d{8}$/) ? q.get("d") : jstDay());
+  if (!tokGet()){ $("ghTokRow").style.display = ""; ghMsg("読み取り専用のトークンを貼って「覚えさせる」を押してください（最初の1回だけ）。"); return; }
+  $("ghTokRow").style.display = "none";
+  ghMsg(day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + " のファイルを調べています…");
+  let list = null;
+  for (let k = 0; k < (rid ? 4 : 1); k++){        // ショートカットの保存の直後に開いたときのため、見つからなければ数秒おいて読み直す
+    try { list = await ghGet("fwd/" + day + "/pre", false); }
+    catch (e){
+      if (e.status === 401){ ghMsg('<span class="bad">トークンが使えません（期限切れ・打ち間違いなど）。</span>'); tokSet(""); $("ghTokRow").style.display = ""; return; }
+      if (e.status !== 404){ ghMsg('<span class="bad">' + escH(e.message) + '</span>'); return; }
+      list = [];
+    }
+    if (!rid || list.some(x => (x.name || "").startsWith("oddspre_" + rid + "_" + (t || "")))) break;
+    ghMsg(rid + " のファイルを待っています…（" + (k + 1) + "）"); await new Promise(r => setTimeout(r, 4000));
+  }
+  const F = (Array.isArray(list) ? list : []).map(x => (x.name || "").match(/^(card|oddspre)_(\d{16})_(\d{14})\.txt$/)).filter(m => m)
+    .map(m => ({ kind: m[1], rid: m[2], ts: m[3], name: m[0], path: "fwd/" + day + "/pre/" + m[0] }));
+  const OD = F.filter(x => x.kind === "oddspre").sort((a, b) => (a.rid + a.ts).localeCompare(b.rid + b.ts));
+  if (!OD.length){ ghMsg("この日（" + day + "）の締切前のファイル（oddspre_）はまだありません。"); return; }
+  let h = '<div>' + day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + ' の締切前のファイル（押すとそのレースを計算します）:</div><div class="row">';
+  OD.forEach((x, i) => { h += '<button class="ghR sub" data-i="' + i + '" style="padding:4px 10px">' + Number(x.rid.slice(-2)) + 'R ' + tsShow(x.ts) + '</button>'; });
+  ghMsg(h + '</div><div id="ghSt" class="note"></div>');
+  document.querySelectorAll(".ghR").forEach(b => b.onclick = () => ghRun(OD[+b.dataset.i], F));
+  if (rid){
+    const mine = OD.filter(x => x.rid === rid), pick = mine.find(x => x.ts === t) || mine[mine.length - 1];
+    if (pick) await ghRun(pick, F); else $("ghSt").innerHTML = '<span class="bad">' + rid + ' の締切前のファイルが見つかりません。</span>';
+  }
+}
+async function ghRun(od, F){
+  const st = m => { $("ghSt").innerHTML = m; };
+  try {
+    const cs = F.filter(x => x.kind === "card" && x.rid === od.rid && x.ts <= od.ts).sort((a, b) => a.ts.localeCompare(b.ts));
+    const card = cs.find(x => x.ts === od.ts) || cs[cs.length - 1];
+    if (!card){ st('<span class="bad">同じ時刻かそれより前の出走表（card_）がありません。</span>'); return; }
+    st("計算の準備を待っています…");
+    while (!py) await new Promise(r => setTimeout(r, 300));
+    if (!coefOK){ st("係数を読んでいます…"); if (!(await loadCoef(await ghGet(GH.coef, true)))){ st('<span class="bad">係数を確かめられませんでした（上の 1. を見てください）。</span>'); return; } }
+    st("出走表と oddsJS を読んでいます…");
+    const cb = await ghGet(card.path, true), ob = await ghGet(od.path, true);
+    st(Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + " 取得）を計算しています…");
+    await runWith([new File([cb], card.name)], [new File([ob], od.name)]);
+    st('<span class="ok">' + Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + ' 取得）を出しました。</span>使ったファイル: ' + escH(card.name) + "・" + escH(od.name));
+    $("out").scrollIntoView({ behavior: "smooth" });
+  } catch (e){ st('<span class="bad">' + escH(e.message || e) + '</span>'); }
+}
+$("ghSave").onclick = () => { const v = $("ghTok").value.trim(); if (!v) return; if (!tokSet(v)){ ghMsg('<span class="bad">このブラウザでは覚えさせられません（プライベートブラウズでは使えないことがあります）。</span>'); return; } $("ghTok").value = ""; ghStart(); };
+$("ghForget").onclick = e => { e.preventDefault(); tokSet(""); $("ghTokRow").style.display = ""; ghMsg("トークンを忘れさせました。"); };
+ghStart();
 $("bCsv").onclick = () => saveBytes(new TextEncoder().encode(csvText()), "m1v3form_" + nowStamp(new Date()) + ".csv");
 (function(){ const s = $("selForm");
   ["回収率最大化 L2=0.001（券種ごとの係数）", "回収率最大化 L2=0.001（全券種の合計向け）", "M1 v3 正式"].forEach(n => { const o = document.createElement("option"); o.value = n; o.textContent = n; s.appendChild(o); }); })();
