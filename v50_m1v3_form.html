@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.7 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.8 (2026-11-24)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -64,10 +64,11 @@ tr.top td{background:var(--hi)}
 <li><b>格と対戦</b>: 格R1 と 対戦H1 の4列（値と、記録が無い印）による点。</li>
 <li><b>格R1</b>: 前5走のうち南関東の普通の走（頭数2以上）の格の番号（OP=0、A1=1〜C3=8。題名から読む）の重み付き平均（重み 0.7）。<b>小さいほど格が上</b>。南関東の普通の走に格の番号が無い馬は「記録なし」。</li>
 <li><b>対戦H1</b>: 前5走で今回一緒に走る馬と同じレースに出たときの（先着 − 先着された）÷ 対戦の回数。−1〜+1 で、+1 は今回の相手に毎回先着。今回の相手と走ったことが無い馬は「対戦なし」。</li>
+<li><b>能力表（回収率最大化 単勝向け L2=0.0001）</b>: 同じ44列に、第1群の単勝の回収率を上げるように作った係数を掛けた点。順位はこの点の順位で、フォーメーションの1着・2着に使う。能力・加減・格と対戦は M1 v3 と同じ列の分け方の小計。一部の列（斤量の差など）の重みが極端に大きく、能力の物差しではない。勝率は出さない。プラス要因・マイナス要因はレースの平均との差の大きい列。</li>
 <li>網掛け: M1順位〜対戦H1 の列ごとに、良い値ほど赤、悪い値ほど青（M1順位・市場人気・単勝オッズ・格R1 は小さいほど良い、ほかは大きいほど良い）。色の濃さは値の大きさではなく列の中の順位で決める（いちばん良い馬がいちばん赤、まん中の順位が白、いちばん悪い馬がいちばん青。同じ値は同じ色）。「記録なし」「対戦なし」は網掛けしない。</li>
 </ul>
 <p class="note">表の見出しを押すと並べ替えます（もう一度押すと逆順。並べ替えた列に ▲▼）。馬番・馬名は横にスクロールしても残ります。フォーメーション表の3着は馬番の小さい順。</p>
-<p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（06c74311…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
+<p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（5502293d…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
 </section>
 </main>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
@@ -511,7 +512,7 @@ def compute(H, coef, drop=()):
     return out, deb, races
 </script>
 <script type="text/plain" id="py-m1v3form"># -*- coding: utf-8 -*-
-"""m1v3form 1.2 (2026-11-24。1.2 は係数の組ごとに「その組の点の1位・2位で全券種」のフォーメーションを出す形にした〔係数のファイル 2 は 単勝向け L2=0.0001 の1組〕)  新しいページ（M1 v3 の能力表とフォーメーション表）の計算（Pyodide。numpy と pandas だけ）。
+"""m1v3form 1.3 (2026-11-24。1.3 は係数の組（単勝向け L2=0.0001）の能力表〔点・順位・能力・加減・格と対戦・主な要因〕を足した。1.2 は係数の組ごとに「その組の点の1位・2位で全券種」のフォーメーションを出す形にした〔係数のファイル 2 は 単勝向け L2=0.0001 の1組〕)  新しいページ（M1 v3 の能力表とフォーメーション表）の計算（Pyodide。numpy と pandas だけ）。
 - 能力表: m1v3.compute（m1v3.py を変えずに読む）に M1 v3 v1 正式の係数（6676e5ff…）を渡した値。
 - フォーメーション: 1着 a = 点1位・2着 b = 点2位（同じ点は馬番の小さい順）・3着 C = 人気1〜5位のうち a・b でない馬。
   点は「M1 v3 正式」と、係数のファイルの組（ファイル 2 は「回収率最大化 単勝向け L2=0.0001」。v75_l2grid.json・記録148）。
@@ -606,7 +607,7 @@ def run(csv_path, rid, odds_path=""):
                 if x is not None:
                     odds[int(n)] = x
     pop = {n: k + 1 for k, (x, n) in enumerate(sorted((x, n) for n, x in odds.items()))}
-    rows = []; forms = {}
+    rows = []; forms = {}; tables = []
     if len(out) and "順位" in out.columns:
         out = out.reset_index(drop=True); X = out[m1v3.COLS].values.astype(float); num = pd.to_numeric(out.h_num).values
         def order(s):
@@ -618,6 +619,20 @@ def run(csv_path, rid, odds_path=""):
                          "match_d": _f(r["格と対戦_表示"]), "r1": None if r["格の記録"] == "なし" else _f(r["R1の元の値"]),
                          "h1": None if r["今回の相手との対戦"] == "なし" else _f(r["H1の元の値"]), "pos": r["プラス要因"], "neg": r["マイナス要因"],
                          "total": _f(r["合計点"], 6), "x": [_f(r[c], 6) for c in m1v3.COLS]})
+        # 係数の組ごとの能力表（M1 v3 正式と同じ分け方: 能力 = A+D、加減 = B+C+E、格と対戦 = R1・H1 の4列）
+        ia = [m1v3.COLS.index(c) for c in m1v3.ABILITY]; it = [m1v3.COLS.index(c) for c in m1v3.TODAY]; im = [m1v3.COLS.index(c) for c in m1v3.MATCH]
+        tables = []
+        for name, kinds, b in SETS:
+            con = X * b; sc = con.sum(1); rk = {n: k + 1 for k, n in enumerate(order(sc))}
+            cen = lambda v: v - v.mean()
+            A, T_, M_ = cen(con[:, ia].sum(1)), cen(con[:, it].sum(1)), cen(con[:, im].sum(1)); S = cen(sc)
+            R2 = []
+            for i in range(len(sc)):
+                ci = con[i] - con.mean(0)   # レースの平均との差で、主な要因を選ぶ
+                o = np.argsort(-ci); pos = " / ".join("%s %+.2f" % (m1v3.LABEL[m1v3.COLS[j]], ci[j]) for j in o[:2] if ci[j] > 0.005)
+                o = np.argsort(ci); neg = " / ".join("%s %+.2f" % (m1v3.LABEL[m1v3.COLS[j]], ci[j]) for j in o[:2] if ci[j] < -0.005)
+                R2.append({"num": int(num[i]), "rank": rk[int(num[i])], "score": _f(sc[i], 6), "score_d": _f(S[i]), "abil_d": _f(A[i]), "today_d": _f(T_[i]), "match_d": _f(M_[i]), "pos": pos, "neg": neg})
+            tables.append({"name": name, "rows": R2})
         C_all = [n for n, k in sorted(pop.items(), key=lambda t: t[1]) if k <= 5]
         if len(rows) >= 2 and mode == "通常":
             def form(s, kinds):
@@ -627,7 +642,7 @@ def run(csv_path, rid, odds_path=""):
             for name, kinds, b in SETS:          # 係数の組ごと（全券種で同じ1着・2着）
                 forms[name] = form(X @ b, kinds)
             forms["M1 v3 正式"] = form(X @ C3, KINDS)
-    return json.dumps({"mode": mode, "info": info, "odds": od_info, "rows": rows, "forms": forms,
+    return json.dumps({"mode": mode, "info": info, "odds": od_info, "rows": rows, "forms": forms, "tables": tables,
                        "debut": [{"num": int(d.h_num), "name": d.h_name} for _, d in deb.iterrows()],
                        "dropped": [int(x) for _, x in drop], "cols": m1v3.COLS}, ensure_ascii=False)
 </script>
@@ -979,7 +994,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.7 (2026-11-24)";
+const VERSION = "m1v3-form-1.8 (2026-11-24)";
 const CSHA = "77fda45c46e13b74384dd98d446507bc86adbd5451e699a67aadd7322c59f41a";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -1071,6 +1086,31 @@ function formHtml(J){
   return h;
 }
 
+// 能力表（並べ替え・網掛け・馬番と馬名の固定）。列: [見出し, 値, 表示, 良い向き（-1 小さいほど良い・+1 大きいほど良い・0 網掛けなし）, 左寄せ]
+function sortTable(R, C, debut){
+  let h = "";
+  // 網掛けは列の中の順位で決める（値の大きさではなく、何番目か）。外れ値が1頭いても、ほかの馬の色がつぶれない。同じ値は同じ色
+  const vals = C.map(c => R.map(c[1]).filter(x => x != null));
+  const shade = (k, v) => {   // 良い値 = 赤、悪い値 = 青
+    const d = C[k][3], V = vals[k]; if (!d || v == null || V.length < 2) return "";
+    const lo = V.filter(x => x < v).length, eq = V.filter(x => x === v).length;
+    if (eq === V.length) return "";
+    let t = (lo + (eq - 1) / 2) / (V.length - 1); if (d < 0) t = 1 - t;   // t = 1 が最良
+    const a = Math.abs(t - 0.5) * 2 * 0.55;
+    return ' style="background:' + (t >= 0.5 ? "rgba(214,48,49," : "rgba(41,98,214,") + a.toFixed(3) + ')"';
+  };
+  const fx = k => k === 0 ? "fx num" : (k === 1 ? "fx fx2" : "");   // 馬番・馬名は横スクロールで固定
+  const cls = (k, c) => { const a = [fx(k), c[4] ? "l" : ""].filter(x => x).join(" "); return a ? ' class="' + a + '"' : ""; };
+  h += '<div class="scroll"><table class="sort"><thead><tr>' + C.map((c, k) => '<th' + cls(k, c) + '>' + c[0] + '</th>').join("") + '</tr></thead><tbody>';
+  R.forEach(r => {
+    h += '<tr>' + C.map((c, k) => { const v = c[1](r);
+      return '<td' + cls(k, c) + (C[k][0].endsWith("要因") ? ' style="font-size:.78rem"' : '') + shade(k, v) + (v == null && !c[4] ? ' data-v=""' : (c[4] ? '' : ' data-v="' + v + '"')) + '>' + c[2](r) + '</td>'; }).join("") + '</tr>';
+  });
+  debut.forEach(x => { h += '<tr data-fixed="1"><td class="fx num">' + x.num + '</td><td class="fx fx2 l">' + escH(x.name) + '</td><td colspan="' + (C.length - 2) + '" class="l">対象外（初出走）</td></tr>'; });
+  h += '</tbody></table></div>';
+  return h;
+}
+
 function raceHtml(J, rid){
   const I = J.info || {};
   let h = '<h2>' + escH((I.r_venue || "") + " " + (I.r_rno || "") + "R　" + (I.r_surface || "") + (I.r_dist || "") + "m" + (I.r_heads ? "・" + I.r_heads + "頭" : "")) + '<br><span class="rid" style="margin-left:0">' + rid + (I.r_post_time ? "　発走 " + escH(I.r_post_time) : "") + (I.r_title_raw ? "　" + escH(I.r_title_raw) : "") + '</span></h2>';
@@ -1088,26 +1128,18 @@ function raceHtml(J, rid){
     ["能力", r => r.abil_d, r => sg(r.abil_d), 1], ["加減", r => r.today_d, r => sg(r.today_d), 1], ["格と対戦", r => r.match_d, r => sg(r.match_d), 1],
     ["格R1", r => r.r1, r => r.r1 == null ? "記録なし" : r.r1.toFixed(2), -1], ["対戦H1", r => r.h1, r => r.h1 == null ? "対戦なし" : sg(r.h1), 1],
     ["プラス要因", r => null, r => escH(r.pos), 0, 1], ["マイナス要因", r => null, r => escH(r.neg), 0, 1]];
-  const R = J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num);
-  // 網掛けは列の中の順位で決める（値の大きさではなく、何番目か）。外れ値が1頭いても、ほかの馬の色がつぶれない。同じ値は同じ色
-  const vals = C.map(c => R.map(c[1]).filter(x => x != null));
-  const shade = (k, v) => {   // 良い値 = 赤、悪い値 = 青
-    const d = C[k][3], V = vals[k]; if (!d || v == null || V.length < 2) return "";
-    const lo = V.filter(x => x < v).length, eq = V.filter(x => x === v).length;
-    if (eq === V.length) return "";
-    let t = (lo + (eq - 1) / 2) / (V.length - 1); if (d < 0) t = 1 - t;   // t = 1 が最良
-    const a = Math.abs(t - 0.5) * 2 * 0.55;
-    return ' style="background:' + (t >= 0.5 ? "rgba(214,48,49," : "rgba(41,98,214,") + a.toFixed(3) + ')"';
-  };
-  const fx = k => k === 0 ? "fx num" : (k === 1 ? "fx fx2" : "");   // 馬番・馬名は横スクロールで固定
-  const cls = (k, c) => { const a = [fx(k), c[4] ? "l" : ""].filter(x => x).join(" "); return a ? ' class="' + a + '"' : ""; };
-  h += '<div class="scroll"><table class="sort"><thead><tr>' + C.map((c, k) => '<th' + cls(k, c) + '>' + c[0] + '</th>').join("") + '</tr></thead><tbody>';
-  R.forEach(r => {
-    h += '<tr>' + C.map((c, k) => { const v = c[1](r);
-      return '<td' + cls(k, c) + (k >= 12 ? ' style="font-size:.78rem"' : '') + shade(k, v) + (v == null && !c[4] ? ' data-v=""' : (c[4] ? '' : ' data-v="' + v + '"')) + '>' + c[2](r) + '</td>'; }).join("") + '</tr>';
+  h += sortTable(J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num), C, J.debut);
+  const byN = Object.fromEntries(J.rows.map(r => [r.num, r]));
+  (J.tables || []).forEach(T => {
+    h += '<h3>能力表（' + escH(T.name) + '）</h3><p class="note">フォーメーションの1着・2着は、この表の順位の1位・2位（「' + escH(T.name) + '」を選んでいるとき）。点・能力・加減・格と対戦はレースの平均を0にした値（回収率を上げるように作った点で、勝つ確率の目安ではない）。</p>';
+    const C2 = [
+      ["馬番", r => r.num, r => r.num, 0], ["馬名", r => null, r => escH(byN[r.num].name), 0, 1],
+      ["順位", r => r.rank, r => r.rank, -1], ["M1順位", r => byN[r.num].rank, r => byN[r.num].rank, -1],
+      ["市場人気", r => byN[r.num].pop, r => byN[r.num].pop == null ? "" : byN[r.num].pop, -1], ["単勝オッズ", r => byN[r.num].odds, r => byN[r.num].odds == null ? "" : byN[r.num].odds.toFixed(1), -1],
+      ["点", r => r.score_d, r => sg(r.score_d), 1], ["能力", r => r.abil_d, r => sg(r.abil_d), 1], ["加減", r => r.today_d, r => sg(r.today_d), 1], ["格と対戦", r => r.match_d, r => sg(r.match_d), 1],
+      ["プラス要因", r => null, r => escH(r.pos), 0, 1], ["マイナス要因", r => null, r => escH(r.neg), 0, 1]];
+    h += sortTable(T.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num), C2, J.debut);
   });
-  J.debut.forEach(x => { h += '<tr data-fixed="1"><td class="fx num">' + x.num + '</td><td class="fx fx2 l">' + escH(x.name) + '</td><td colspan="12" class="l">対象外（初出走）</td></tr>'; });
-  h += '</tbody></table></div>';
   if (J.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + J.dropped.join("・") + '）は除いて計算しました。</p>';
   h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0" data-formname="1"></span></h3><div class="form">' + formHtml(J) + '</div>';
   return h;
@@ -1143,7 +1175,7 @@ async function runWith(raceFiles, oddsFiles){
       const J = JSON.parse(runFn("/tmp/rows.csv", rid, opath));
       if (ofs.length > 1) J.oddsNote = ofs.length;
       RES.push([rid, J]); sec.innerHTML = raceHtml(J, rid) + (ofs.length > 1 ? '<p class="note">この レースの oddsJS が ' + ofs.length + ' 件あったので、ファイル名の順でいちばん後のもの（いちばん新しいもの）を使いました。</p>' : '');
-      const t = sec.querySelector("table.sort"); if (t){ sortable(t); fixLeft(t); }
+      sec.querySelectorAll("table.sort").forEach(t => { sortable(t); fixLeft(t); });
       const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
     } catch (e) { sec.innerHTML = '<p class="bad">' + rid + ': 計算で止まりました: ' + escH(e) + '</p>'; RES.push([rid, null]); }
   }
@@ -1152,9 +1184,10 @@ async function runWith(raceFiles, oddsFiles){
 }
 
 function csvText(){
-  const L = [["race_id", "mode", "rank", "num", "name", "pop", "odds", "total", "total_centered", "p_win", "ability_centered", "today_centered", "match_centered", "r1_raw", "h1_raw", "plus", "minus"].concat(COLS, ["page_ver"]).join(",")];
-  RES.forEach(([rid, J]) => { if (!J) return; J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num).forEach(r =>
-    L.push([rid, J.mode, r.rank, r.num, r.name, r.pop, r.odds, r.total, r.total_d, r.p, r.abil_d, r.today_d, r.match_d, r.r1, r.h1, r.pos, r.neg].concat(r.x, [VERSION]).map(escC).join(","))); });
+  const L = [["race_id", "mode", "rank", "num", "name", "pop", "odds", "total", "total_centered", "p_win", "ability_centered", "today_centered", "match_centered", "r1_raw", "h1_raw", "plus", "minus", "rank_tan_l2_0.0001", "score_tan_l2_0.0001"].concat(COLS, ["page_ver"]).join(",")];
+  RES.forEach(([rid, J]) => { if (!J) return; const T = (J.tables || [])[0], tb = T ? Object.fromEntries(T.rows.map(x => [x.num, x])) : {};
+    J.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num).forEach(r =>
+    L.push([rid, J.mode, r.rank, r.num, r.name, r.pop, r.odds, r.total, r.total_d, r.p, r.abil_d, r.today_d, r.match_d, r.r1, r.h1, r.pos, r.neg, tb[r.num] ? tb[r.num].rank : "", tb[r.num] ? tb[r.num].score : ""].concat(r.x, [VERSION]).map(escC).join(","))); });
   L.push(""); L.push(["race_id", "coef", "type", "a", "b", "C", "tickets", "points", "page_ver"].join(","));
   RES.forEach(([rid, J]) => { if (!J) return; Object.entries(J.forms).forEach(([name, F]) => F.forEach(x =>
     L.push([rid, name, x.kind, x.a, x.b, x.C.join(" "), x.tickets.join(" "), x.tickets.length, VERSION].map(escC).join(",")))); });
