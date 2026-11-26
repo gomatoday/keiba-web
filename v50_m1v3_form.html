@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.12 (2026-11-26)　自分用・試し</div>
+<div class="note">m1v3-form-1.13 (2026-11-26)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -3495,7 +3495,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.12 (2026-11-26)";
+const VERSION = "m1v3-form-1.13 (2026-11-26)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3621,8 +3621,7 @@ function popFormHtml(P, odds){
   const pl = K => K.map(k => k + "番人気").join("・");
   h += '<div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th class="l">1着</th><th class="l">2着</th><th class="l">3着</th><th style="text-align:center">点数</th></tr></thead><tbody>';
   h += '<tr><td class="l">三連単</td><td class="l">' + lab(F.A.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.B.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.C) + '</td><td style="text-align:center">' + F.T.length + '</td></tr>';
-  h += '<tr><td class="l" style="font-size:.78rem">人気</td><td class="l" style="font-size:.78rem">' + pl(PF.A) + '</td><td class="l" style="font-size:.78rem">' + pl(PF.B) + '</td><td class="l" style="font-size:.78rem">' + pl(PF.C) + '</td><td></td></tr>';
-  h += '</tbody></table></div><p class="note">買い目（1着-2着-3着）: ' + (F.T.length ? F.T.join("　") : "なし") + '</p>';
+  h += '</tbody></table></div><p class="note">1着　' + pl(PF.A) + '<br>2着　' + pl(PF.B) + '<br>3着　' + pl(PF.C) + '</p>';
   h += '<p class="note">人気は読み込んだ oddsJS の単勝オッズの低い順（有効な馬だけ）。研究では確定人気で測った（第1群 87.9% [73.8, 104.5]・第2群 103.6% [50.4, 165.7]、的中率 12%前後。第2群は大きい当たり1本を除くと 80.3%）。100% 超が残ったとは言えない参考の買い方。' + (F.heads < 8 ? '<b class="bad">このレースは有効な馬が 8 頭未満で、研究の対象（1〜8番人気がそろうレース）に入りません。</b>' : '') + '</p>';
   return h;
 }
