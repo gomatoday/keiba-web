@@ -27,9 +27,10 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.13 (2026-11-26)　自分用・試し</div>
+<div class="note">m1v3-form-1.14 (2026-11-26)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
+<div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
 <div id="ghBody" class="note">準備しています…</div>
 <div class="row" id="ghTokRow" style="display:none"><input type="password" id="ghTok" placeholder="読み取り専用のトークン" autocomplete="off" style="flex:1;min-width:12em;font:inherit;padding:6px 8px"><button id="ghSave">覚えさせる</button></div>
 <p class="note">keiba-data（非公開）の fwd/＜日付＞/pre/ から出走表（card_）と oddsJS（oddspre_）を、fwd/code/m1v3form/ から係数を読みます。読むだけです。トークンは keiba-data の Contents の読み取りだけを許したもの。この端末のこのブラウザだけが覚えます（見通しのページと共通）。<a href="#" id="ghForget">トークンを忘れさせる</a></p>
@@ -3495,7 +3496,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.13 (2026-11-26)";
+const VERSION = "m1v3-form-1.14 (2026-11-26)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3784,18 +3785,31 @@ async function ghGet(path, raw){
 const jstDay = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }).replace(/-/g, "");
 const tsShow = s => s.slice(8, 10) + ":" + s.slice(10, 12) + ":" + s.slice(12, 14);
 function ghMsg(h){ $("ghBody").innerHTML = h; }
-async function ghStart(){
+// 日付の一覧（keiba-data の fwd/ にある YYYYMMDD のフォルダ。新しい順）。選ぶとその日の締切前のファイルを出す
+let ghDays = null;
+async function ghDayList(day){
+  if (!ghDays){
+    try { const L = await ghGet("fwd", false); ghDays = (Array.isArray(L) ? L : []).filter(x => x.type === "dir" && /^\d{8}$/.test(x.name)).map(x => x.name).sort().reverse(); }
+    catch (e){ ghDays = []; }
+  }
+  const D = ghDays.includes(day) ? ghDays : [day].concat(ghDays).sort().reverse();
+  const sel = $("ghDay"); sel.innerHTML = D.map(d => '<option value="' + d + '"' + (d === day ? " selected" : "") + '>' + d.slice(0, 4) + "/" + d.slice(4, 6) + "/" + d.slice(6) + (ghDays.includes(d) ? "" : "（フォルダなし）") + '</option>').join("");
+  $("ghDayRow").style.display = D.length ? "" : "none";
+}
+$("ghDay").onchange = () => ghStart($("ghDay").value);
+async function ghStart(pickDay){
   const q = new URLSearchParams(location.search);
-  const rid = (q.get("rid") || "").match(/^\d{16}$/) ? q.get("rid") : "", t = (q.get("t") || "").match(/^\d{14}$/) ? q.get("t") : "";
-  const day = rid ? rid.slice(0, 8) : ((q.get("d") || "").match(/^\d{8}$/) ? q.get("d") : jstDay());
-  if (!tokGet()){ $("ghTokRow").style.display = ""; ghMsg("読み取り専用のトークンを貼って「覚えさせる」を押してください（最初の1回だけ）。"); return; }
+  const rid = !pickDay && (q.get("rid") || "").match(/^\d{16}$/) ? q.get("rid") : "", t = (q.get("t") || "").match(/^\d{14}$/) ? q.get("t") : "";
+  const day = pickDay || (rid ? rid.slice(0, 8) : ((q.get("d") || "").match(/^\d{8}$/) ? q.get("d") : jstDay()));
+  if (!tokGet()){ $("ghTokRow").style.display = ""; $("ghDayRow").style.display = "none"; ghMsg("読み取り専用のトークンを貼って「覚えさせる」を押してください（最初の1回だけ）。"); return; }
   $("ghTokRow").style.display = "none";
+  await ghDayList(day);
   ghMsg(day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + " のファイルを調べています…");
   let list = null;
   for (let k = 0; k < (rid ? 4 : 1); k++){        // ショートカットの保存の直後に開いたときのため、見つからなければ数秒おいて読み直す
     try { list = await ghGet("fwd/" + day + "/pre", false); }
     catch (e){
-      if (e.status === 401){ ghMsg('<span class="bad">トークンが使えません（期限切れ・打ち間違いなど）。</span>'); tokSet(""); $("ghTokRow").style.display = ""; return; }
+      if (e.status === 401){ ghMsg('<span class="bad">トークンが使えません（期限切れ・打ち間違いなど）。</span>'); tokSet(""); ghDays = null; $("ghDayRow").style.display = "none"; $("ghTokRow").style.display = ""; return; }
       if (e.status !== 404){ ghMsg('<span class="bad">' + escH(e.message) + '</span>'); return; }
       list = [];
     }
@@ -3833,8 +3847,8 @@ async function ghRun(od, F){
     $("out").scrollIntoView({ behavior: "smooth" });
   } catch (e){ st('<span class="bad">' + escH(e.message || e) + '</span>'); }
 }
-$("ghSave").onclick = () => { const v = $("ghTok").value.trim(); if (!v) return; if (!tokSet(v)){ ghMsg('<span class="bad">このブラウザでは覚えさせられません（プライベートブラウズでは使えないことがあります）。</span>'); return; } $("ghTok").value = ""; ghStart(); };
-$("ghForget").onclick = e => { e.preventDefault(); tokSet(""); $("ghTokRow").style.display = ""; ghMsg("トークンを忘れさせました。"); };
+$("ghSave").onclick = () => { const v = $("ghTok").value.trim(); if (!v) return; if (!tokSet(v)){ ghMsg('<span class="bad">このブラウザでは覚えさせられません（プライベートブラウズでは使えないことがあります）。</span>'); return; } $("ghTok").value = ""; ghDays = null; ghStart(); };
+$("ghForget").onclick = e => { e.preventDefault(); tokSet(""); ghDays = null; $("ghDayRow").style.display = "none"; $("ghTokRow").style.display = ""; ghMsg("トークンを忘れさせました。"); };
 ghStart();
 $("bCsv").onclick = () => saveBytes(new TextEncoder().encode(csvText()), "m1v3form_" + nowStamp(new Date()) + ".csv");
 (function(){ const s = $("selForm");
