@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.11 (2026-11-24)　自分用・試し</div>
+<div class="note">m1v3-form-1.12 (2026-11-26)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div id="ghBody" class="note">準備しています…</div>
@@ -71,7 +71,7 @@ tr.top td{background:var(--hi)}
 <li>網掛け: M1順位〜対戦H1 の列ごとに、良い値ほど赤、悪い値ほど青（M1順位・市場人気・単勝オッズ・格R1 は小さいほど良い、ほかは大きいほど良い）。色の濃さは値の大きさではなく列の中の順位で決める（いちばん良い馬がいちばん赤、まん中の順位が白、いちばん悪い馬がいちばん青。同じ値は同じ色）。「記録なし」「対戦なし」は網掛けしない。</li>
 </ul>
 <p class="note">表の見出しを押すと並べ替えます（もう一度押すと逆順。並べ替えた列に ▲▼）。馬番・馬名は横にスクロールしても残ります。フォーメーション表の3着は馬番の小さい順。</p>
-<p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（73f362c8…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
+<p class="note">計算: m1v2.py（c34f2f4a…）・m1v3.py（94dedd38…）・m1v3form.py（db239756…）。出走表の読み取り: learn_core.js（eb33827a…）・card_rows.js（2403978c…）。</p>
 </section>
 </main>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
@@ -2928,7 +2928,7 @@ def compute(H, coef, drop=()):
     return out, deb, races
 </script>
 <script type="text/plain" id="py-m1v3form"># -*- coding: utf-8 -*-
-"""m1v3form 1.5 (2026-11-24。1.5 は新馬戦のフォーメーションの3着を、確定人気ではなくその点の順位1〜5位〔1着・2着を除く〕に。1.4 は新馬戦（run_debut）を足した。1.3 は1.3 は係数の組（単勝向け L2=0.0001）の能力表〔点・順位・能力・加減・格と対戦・主な要因〕を足した。1.2 は係数の組ごとに「その組の点の1位・2位で全券種」のフォーメーションを出す形にした〔係数のファイル 2 は 単勝向け L2=0.0001 の1組〕)  新しいページ（M1 v3 の能力表とフォーメーション表）の計算（Pyodide。numpy と pandas だけ）。
+"""m1v3form 1.6 (2026-11-26。1.6 は run の出力に人気の表 pops〔馬番 → 人気〕を足した〔人気だけのフォーメーション表のため〕。1.5 は新馬戦のフォーメーションの3着を、確定人気ではなくその点の順位1〜5位〔1着・2着を除く〕に。1.4 は新馬戦（run_debut）を足した。1.3 は1.3 は係数の組（単勝向け L2=0.0001）の能力表〔点・順位・能力・加減・格と対戦・主な要因〕を足した。1.2 は係数の組ごとに「その組の点の1位・2位で全券種」のフォーメーションを出す形にした〔係数のファイル 2 は 単勝向け L2=0.0001 の1組〕)  新しいページ（M1 v3 の能力表とフォーメーション表）の計算（Pyodide。numpy と pandas だけ）。
 - 能力表: m1v3.compute（m1v3.py を変えずに読む）に M1 v3 v1 正式の係数（6676e5ff…）を渡した値。
 - フォーメーション: 1着 a = 点1位・2着 b = 点2位（同じ点は馬番の小さい順）・3着 C = 人気1〜5位のうち a・b でない馬。
   点は「M1 v3 正式」と、係数のファイルの組（ファイル 2 は「回収率最大化 単勝向け L2=0.0001」。v75_l2grid.json・記録148）。
@@ -3065,7 +3065,7 @@ def run(csv_path, rid, odds_path=""):
             forms["M1 v3 正式"] = form(X @ C3, KINDS)
     return json.dumps({"mode": mode, "info": info, "odds": od_info, "rows": rows, "forms": forms, "tables": tables,
                        "debut": [{"num": int(d.h_num), "name": d.h_name} for _, d in deb.iterrows()],
-                       "dropped": [int(x) for _, x in drop], "cols": m1v3.COLS}, ensure_ascii=False)
+                       "dropped": [int(x) for _, x in drop], "cols": m1v3.COLS, "pops": {str(n): k for n, k in pop.items()}}, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------- 新馬戦（m1v3form 1.4）
@@ -3495,7 +3495,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.11 (2026-11-24)";
+const VERSION = "m1v3-form-1.12 (2026-11-26)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3605,6 +3605,28 @@ function formHtml(J, key){
   return h;
 }
 
+// 人気だけのフォーメーション（三連単 1,3,4→1,3,4,5,6,7→2。第1群・第2群で測った買い方。記録174・176）
+const PF = { name: "人気 三連単 1,3,4→1,3,4,5,6,7→2", A: [1, 3, 4], B: [1, 3, 4, 5, 6, 7], C: [2] };
+function popForm(P){   // P: {馬番: 人気}
+  const N = {}; Object.entries(P || {}).forEach(([n, k]) => { N[k] = Number(n); });
+  const m = L => L.filter(k => N[k] != null).map(k => N[k]);
+  const A = m(PF.A), B = m(PF.B), C = m(PF.C), T = [];
+  A.forEach(a => B.forEach(b => C.forEach(c => { if (a !== b && a !== c && b !== c) T.push(a + "-" + b + "-" + c); })));
+  return { A, B, C, T, heads: Object.keys(P || {}).length };
+}
+function popFormHtml(P, odds){
+  let h = '<h3>フォーメーション表（人気だけ）<br><span class="rid" style="margin-left:0">' + escH(PF.name) + '</span></h3>';
+  if (!odds) return h + '<p class="note bad">oddsJS が無いので、人気を出せません。</p>';
+  const F = popForm(P), lab = (L, K) => L.length ? L.map((n, i) => n).join("・") : "–";
+  const pl = K => K.map(k => k + "番人気").join("・");
+  h += '<div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th class="l">1着</th><th class="l">2着</th><th class="l">3着</th><th style="text-align:center">点数</th></tr></thead><tbody>';
+  h += '<tr><td class="l">三連単</td><td class="l">' + lab(F.A.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.B.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.C) + '</td><td style="text-align:center">' + F.T.length + '</td></tr>';
+  h += '<tr><td class="l" style="font-size:.78rem">人気</td><td class="l" style="font-size:.78rem">' + pl(PF.A) + '</td><td class="l" style="font-size:.78rem">' + pl(PF.B) + '</td><td class="l" style="font-size:.78rem">' + pl(PF.C) + '</td><td></td></tr>';
+  h += '</tbody></table></div><p class="note">買い目（1着-2着-3着）: ' + (F.T.length ? F.T.join("　") : "なし") + '</p>';
+  h += '<p class="note">人気は読み込んだ oddsJS の単勝オッズの低い順（有効な馬だけ）。研究では確定人気で測った（第1群 87.9% [73.8, 104.5]・第2群 103.6% [50.4, 165.7]、的中率 12%前後。第2群は大きい当たり1本を除くと 80.3%）。100% 超が残ったとは言えない参考の買い方。' + (F.heads < 8 ? '<b class="bad">このレースは有効な馬が 8 頭未満で、研究の対象（1〜8番人気がそろうレース）に入りません。</b>' : '') + '</p>';
+  return h;
+}
+
 // 能力表（並べ替え・網掛け・馬番と馬名の固定）。列: [見出し, 値, 表示, 良い向き（-1 小さいほど良い・+1 大きいほど良い・0 網掛けなし）, 左寄せ]
 function sortTable(R, C, debut){
   let h = "";
@@ -3649,6 +3671,7 @@ function debutHtml(J){
   if (D.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + D.dropped.join("・") + '）は順位とフォーメーションから除きました。</p>';
   if (D.warnings && D.warnings.length) h += '<p class="note">' + D.warnings.map(escH).join("<br>") + '</p>';
   h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0">' + escH(D.name) + '</span></h3><div class="form">' + formHtml({ mode: "新馬", odds: J.odds, rows: D.rows, forms: { x: D.form } }, "x") + '</div>';
+  h += popFormHtml(Object.fromEntries(D.rows.filter(r => !r.dropped && r.pop != null).map(r => [r.num, r.pop])), J.odds);
   return h;
 }
 
@@ -3683,6 +3706,7 @@ function raceHtml(J, rid){
   });
   if (J.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + J.dropped.join("・") + '）は除いて計算しました。</p>';
   h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0" data-formname="1"></span></h3><div class="form">' + formHtml(J) + '</div>';
+  h += popFormHtml(J.pops, J.odds);
   return h;
 }
 
@@ -3737,6 +3761,10 @@ function csvText(){
   L.push(""); L.push(["race_id", "coef", "type", "a", "b", "C", "tickets", "points", "page_ver"].join(","));
   RES.forEach(([rid, J]) => { if (!J) return; Object.entries(J.forms).forEach(([name, F]) => F.forEach(x =>
     L.push([rid, name, x.kind, x.a, x.b, x.C.join(" "), x.tickets.join(" "), x.tickets.length, VERSION].map(escC).join(",")))); });
+  RES.forEach(([rid, J]) => { if (!J || !J.odds) return;
+    const P = J.mode === "新馬" ? (J.debutRes && J.debutRes.ok ? Object.fromEntries(J.debutRes.rows.filter(r => !r.dropped && r.pop != null).map(r => [r.num, r.pop])) : null) : J.pops;
+    if (!P) return; const F = popForm(P);
+    L.push([rid, PF.name, "三連単", F.A.join(" "), F.B.join(" "), F.C.join(" "), F.T.join(" "), F.T.length, VERSION].map(escC).join(",")); });
   L.push(""); L.push(["race_id", "debut_coef", "num", "name", "rank", "rank_debut_mode", "p_win_debut_mode", "score", "pop", "odds", "c_trial", "c_debut", "c_jkcourse", "c_sire", "c_jktr", "bw", "bw_z", "sex", "birth", "jockey_aff", "dropped", "page_ver"].join(","));
   RES.forEach(([rid, J]) => { if (!J || !J.debutRes || !J.debutRes.ok) return; const D = J.debutRes;
     D.rows.forEach(r => L.push([rid, D.name, r.num, r.name, r.rank, r.rank0, r.p0, r.score, r.pop, r.odds].concat(r.parts, [r.bw, r.bw_z, r.sex, r.birth, r.aff, r.dropped ? 1 : 0, VERSION]).map(escC).join(",")));
