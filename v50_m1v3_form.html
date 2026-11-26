@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.15 (2026-11-26)　自分用・試し</div>
+<div class="note">m1v3-form-1.16 (2026-11-26)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -3496,7 +3496,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.15 (2026-11-26)";
+const VERSION = "m1v3-form-1.16 (2026-11-26)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3588,6 +3588,11 @@ function sortable(tbl){
 }
 const td = (text, v, cls) => '<td' + (cls ? ' class="' + cls + '"' : '') + ' data-v="' + (v == null ? "" : v) + '">' + text + '</td>';
 
+// フォーメーション表の切り替え（上の「フォーメーションの係数」の選択と同じ。初期は L2）
+const FSW = [["回収率最大化 単勝向け L2=0.0001", "L2（単勝向け L2=0.0001）"], ["M1 v3 正式", "M1（M1 v3 v1）"]];
+function fswMark(){ document.querySelectorAll(".fswb").forEach(b => { const on = b.dataset.n === $("selForm").value; b.style.fontWeight = on ? "700" : "400"; b.style.background = on ? "#1f6feb" : ""; b.style.color = on ? "#fff" : ""; }); }
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".fswb"); if (!b) return; $("selForm").value = b.dataset.n; renderForms(); });
+
 function formHtml(J, key){
   const sel = key || $("selForm").value, F = J.forms[sel];
   if (J.mode === "混在") return '<p class="note">初出走の馬が混ざるレースなので、フォーメーションは出しません。</p>';
@@ -3640,7 +3645,7 @@ function parseRes(doc){
       const th = tr.querySelector(":scope > th"), td = [...tr.querySelectorAll(":scope > td")].map(x => nrm(x.textContent));
       if (th) kind = nrm(th.textContent);
       if (kind === "備考"){ if (td.join("")) memo.push(td.join(" ")); return; }
-      if (td.length >= 3 && td[0] && td[0] !== "-") o.pays.push({ kind: PKIND[kind] || ("?" + kind), combo: td[0], pay: Number(td[1].replace(/[,円]/g, "")) });
+      if (td.length >= 3 && td[0] && td[0] !== "-") o.pays.push({ kind: PKIND[kind] || ("?" + kind), combo: td[0], pay: Number(td[1].replace(/[,円]/g, "")), pop: td[2] });
     }); o.memo = memo.join(" / "); }
   const t = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /馬名/.test(nrm((x.querySelector("tr") || {}).textContent)) && /人気/.test(nrm((x.querySelector("tr") || {}).textContent)));
   if (t){ let prev = "";
@@ -3669,15 +3674,20 @@ function resultHtml(J){
   if (J.odds && P){ const F = popForm(P); groups.push([PF.name, [{ kind: "三連単", tickets: F.T.map(x => x.replace(/-/g, "→")) }]]); }
   if (!groups.length) return h + '<p class="note">このレースには的中を調べる買い方がありません。</p>';
   groups.forEach(([name, F]) => {
-    let buy = 0, back = 0;
-    h += '<p class="note" style="margin-bottom:2px"><b>' + escH(name) + '</b></p><div class="scroll"><table style="width:auto;min-width:22em"><thead><tr><th class="l">券種</th><th style="text-align:center">点数</th><th class="l">結果</th><th style="text-align:right">払戻</th></tr></thead><tbody>';
+    h += '<p class="note" style="margin-bottom:2px"><b>' + escH(name) + '</b></p><div class="scroll"><table style="width:auto;min-width:22em"><thead><tr><th class="l">券種</th><th style="text-align:center">点数</th><th class="l">結果</th><th style="text-align:right">払戻</th><th class="l">買い目</th></tr></thead><tbody>';
     F.forEach(x => { const T = x.tickets || []; if (!T.length) return; const r = hitOf(Rz, x.kind, T);
-      if (!r.sold){ h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">発売なし</td><td></td></tr>'; return; }
-      buy += 100 * T.length; back += r.pay;
-      h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">' + (r.hit.length ? '<b class="ok">的中</b>（' + r.hit.join("・") + '）' : '不的中') + '</td><td style="text-align:right">' + (r.hit.length ? r.pay.toLocaleString() + "円" : "") + '</td></tr>'; });
-    h += '<tr><td class="l"><b>計</b></td><td></td><td class="l">購入 ' + buy.toLocaleString() + '円</td><td style="text-align:right"><b>' + back.toLocaleString() + '円</b></td></tr></tbody></table></div>';
+      const bt = '<td class="l" style="font-size:.78rem">' + T.join("　") + '</td>';
+      if (!r.sold){ h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">発売なし</td><td></td>' + bt + '</tr>'; return; }
+      h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">' + (r.hit.length ? '<b class="ok">的中</b>（' + r.hit.join("・") + '）' : '不的中') + '</td><td style="text-align:right">' + (r.hit.length ? r.pay.toLocaleString() + "円" : "") + '</td>' + bt + '</tr>'; });
+    h += '</tbody></table></div>';
   });
-  h += '<p class="note">1点100円として計算。払戻は結果のページの払戻金の表から。' + (Rz.memo ? '備考: ' + escH(Rz.memo) : '') + '</p>';
+  h += '<p class="note">1点100円として計算。払戻は下の払戻金の表から（当たった買い目の払戻の合計）。</p>';
+  // 払戻金の表（結果のページのとおり）
+  const KN = { tan: "単勝", fuku: "複勝", wakuren: "枠連", wakutan: "枠単", umaren: "馬連", umatan: "馬単", wide: "ワイド", sanrenpuku: "三連複", sanrentan: "三連単" };
+  h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table style="width:auto;min-width:18em"><thead><tr><th class="l">券種</th><th class="l">組番</th><th style="text-align:right">払戻</th><th style="text-align:right">人気</th></tr></thead><tbody>';
+  let prevK = "";
+  Rz.pays.forEach(x => { h += '<tr><td class="l">' + (x.kind === prevK ? "" : escH(KN[x.kind] || x.kind)) + '</td><td class="l">' + escH(x.combo) + '</td><td style="text-align:right">' + (Number.isFinite(x.pay) ? x.pay.toLocaleString() + "円" : "") + '</td><td style="text-align:right">' + escH(x.pop || "") + '</td></tr>'; prevK = x.kind; });
+  h += '</tbody></table></div>' + (Rz.memo ? '<p class="note">備考: ' + escH(Rz.memo) + '</p>' : '');
   return h;
 }
 
@@ -3760,7 +3770,7 @@ function raceHtml(J, rid){
     h += sortTable(T.rows.slice().sort((a, b) => a.rank - b.rank || a.num - b.num), C2, J.debut);
   });
   if (J.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + J.dropped.join("・") + '）は除いて計算しました。</p>';
-  h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0" data-formname="1"></span></h3><div class="form">' + formHtml(J) + '</div>';
+  h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0" data-formname="1"></span></h3><div class="row fsw">' + FSW.map(([n, lab]) => '<button class="sub fswb" data-n="' + escH(n) + '" style="padding:4px 12px">' + lab + '</button>').join("") + '</div><div class="form">' + formHtml(J) + '</div>';
   h += popFormHtml(J.pops, J.odds);
   h += '<div class="resbox">' + resultHtml(J) + '</div>';
   return h;
@@ -3772,6 +3782,7 @@ function renderForms(){
     if (J.mode === "新馬") return;
     const d = sec.querySelector("div.form"); if (d) d.innerHTML = formHtml(J);
     const rb = sec.querySelector("div.resbox"); if (rb) rb.innerHTML = resultHtml(J);
+    fswMark();
     const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
   });
 }
@@ -3806,6 +3817,7 @@ async function runWith(raceFiles, oddsFiles, resFiles){
       RES.push([rid, J]); sec.innerHTML = raceHtml(J, rid) + (ofs.length > 1 ? '<p class="note">この レースの oddsJS が ' + ofs.length + ' 件あったので、ファイル名の順でいちばん後のもの（いちばん新しいもの）を使いました。</p>' : '');
       sec.querySelectorAll("table.sort").forEach(t => { sortable(t); fixLeft(t); });
       const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
+      fswMark();
     } catch (e) { sec.innerHTML = '<p class="bad">' + rid + ': 計算で止まりました: ' + escH(e) + '</p>'; RES.push([rid, null]); }
   }
   $("status").textContent = "終わりました（" + files.length + " レース）。";
