@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.14 (2026-11-26)　自分用・試し</div>
+<div class="note">m1v3-form-1.15 (2026-11-26)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -3496,7 +3496,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.14 (2026-11-26)";
+const VERSION = "m1v3-form-1.15 (2026-11-26)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3627,6 +3627,60 @@ function popFormHtml(P, odds){
   return h;
 }
 
+// レース後の結果（GitHub の post/result_）。払戻は v50_payout_extract.html の parsePay と同じ読み方（スマートフォン向けの縦の表 .sp）。
+const PKIND = { "単勝": "tan", "複勝": "fuku", "枠複": "wakuren", "普通馬複": "umaren", "枠単": "wakutan", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
+const K2P = { "単勝": "tan", "複勝": "fuku", "枠連": "wakuren", "枠単": "wakutan", "馬連": "umaren", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
+const ORDERED = { tan: 1, fuku: 1, wakutan: 1, umatan: 1, sanrentan: 1 };
+const nrm = s => String(s || "").replace(/\s+/g, " ").trim();
+function parseRes(doc){
+  const o = { order: [], pays: [], memo: "" };
+  const box = [...doc.querySelectorAll(".nk23_c-table01.sp")].find(d => /払戻金/.test(nrm((d.querySelector(".nk23_c-table01__title") || {}).textContent)));
+  if (box){ let kind = ""; const memo = [];
+    box.querySelectorAll("tbody tr").forEach(tr => {
+      const th = tr.querySelector(":scope > th"), td = [...tr.querySelectorAll(":scope > td")].map(x => nrm(x.textContent));
+      if (th) kind = nrm(th.textContent);
+      if (kind === "備考"){ if (td.join("")) memo.push(td.join(" ")); return; }
+      if (td.length >= 3 && td[0] && td[0] !== "-") o.pays.push({ kind: PKIND[kind] || ("?" + kind), combo: td[0], pay: Number(td[1].replace(/[,円]/g, "")) });
+    }); o.memo = memo.join(" / "); }
+  const t = [...doc.querySelectorAll("table.nk23_c-table01__table")].find(x => /馬名/.test(nrm((x.querySelector("tr") || {}).textContent)) && /人気/.test(nrm((x.querySelector("tr") || {}).textContent)));
+  if (t){ let prev = "";
+    [...t.querySelectorAll("tr")].slice(1).forEach(tr => { const tds = [...tr.children].filter(x => x.tagName === "TD"); if (tds.length < 15) return;
+      const v = tds.map(x => nrm(x.textContent)); const fin = /^\d+$/.test(v[0]) ? v[0] : (/同着/.test(v[0]) && prev ? prev : ""); if (fin) prev = fin;
+      if (fin && Number(fin) <= 3) o.order.push({ fin: Number(fin), num: v[2], name: nrm((tds[3].querySelector("a") || tds[3]).textContent), pop: v[14] }); }); }
+  o.order.sort((a, b) => a.fin - b.fin);
+  return o;
+}
+const ckey = (k, c) => { const p = String(c).split(/[^0-9]+/).filter(x => x); return (ORDERED[k] ? p : p.map(Number).sort((a, b) => a - b)).join("-"); };
+function hitOf(Rz, kind, tickets){   // 1点100円。当たった買い目の払戻の合計
+  const k = K2P[kind], P = new Map(); Rz.pays.filter(x => x.kind === k && Number.isFinite(x.pay)).forEach(x => { const c = ckey(k, x.combo); P.set(c, (P.get(c) || 0) + x.pay); });
+  let pay = 0; const hit = []; new Set(tickets.map(t => ckey(k, t))).forEach(t => { if (P.has(t)){ pay += P.get(t); hit.push(t); } });
+  return { pay, hit, sold: P.size > 0 };
+}
+function resultHtml(J){
+  const Rz = J.result; if (!Rz) return "";
+  let h = '<h3>結果<br><span class="rid" style="margin-left:0">' + escH(Rz.file) + '</span></h3>';
+  if (Rz.error) return h + '<p class="bad">結果のページを読めませんでした: ' + escH(Rz.error) + '</p>';
+  h += '<p class="note">' + (Rz.order.length ? Rz.order.map(x => x.fin + "着 " + escH(x.num) + " " + escH(x.name) + (x.pop ? "（" + escH(x.pop) + "番人気）" : "")).join("<br>") : "着順を読めませんでした。") + '</p>';
+  if (!Rz.pays.length) return h + '<p class="bad">払戻金の表を読めませんでした。</p>';
+  const groups = [];
+  if (J.mode === "新馬"){ const D = J.debutRes; if (D && D.ok) groups.push([D.name, D.form]); }
+  else { const sel = $("selForm").value; if (J.forms[sel]) groups.push([sel, J.forms[sel]]); }
+  const P = J.mode === "新馬" ? (J.debutRes && J.debutRes.ok ? Object.fromEntries(J.debutRes.rows.filter(r => !r.dropped && r.pop != null).map(r => [r.num, r.pop])) : null) : J.pops;
+  if (J.odds && P){ const F = popForm(P); groups.push([PF.name, [{ kind: "三連単", tickets: F.T.map(x => x.replace(/-/g, "→")) }]]); }
+  if (!groups.length) return h + '<p class="note">このレースには的中を調べる買い方がありません。</p>';
+  groups.forEach(([name, F]) => {
+    let buy = 0, back = 0;
+    h += '<p class="note" style="margin-bottom:2px"><b>' + escH(name) + '</b></p><div class="scroll"><table style="width:auto;min-width:22em"><thead><tr><th class="l">券種</th><th style="text-align:center">点数</th><th class="l">結果</th><th style="text-align:right">払戻</th></tr></thead><tbody>';
+    F.forEach(x => { const T = x.tickets || []; if (!T.length) return; const r = hitOf(Rz, x.kind, T);
+      if (!r.sold){ h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">発売なし</td><td></td></tr>'; return; }
+      buy += 100 * T.length; back += r.pay;
+      h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">' + (r.hit.length ? '<b class="ok">的中</b>（' + r.hit.join("・") + '）' : '不的中') + '</td><td style="text-align:right">' + (r.hit.length ? r.pay.toLocaleString() + "円" : "") + '</td></tr>'; });
+    h += '<tr><td class="l"><b>計</b></td><td></td><td class="l">購入 ' + buy.toLocaleString() + '円</td><td style="text-align:right"><b>' + back.toLocaleString() + '円</b></td></tr></tbody></table></div>';
+  });
+  h += '<p class="note">1点100円として計算。払戻は結果のページの払戻金の表から。' + (Rz.memo ? '備考: ' + escH(Rz.memo) : '') + '</p>';
+  return h;
+}
+
 // 能力表（並べ替え・網掛け・馬番と馬名の固定）。列: [見出し, 値, 表示, 良い向き（-1 小さいほど良い・+1 大きいほど良い・0 網掛けなし）, 左寄せ]
 function sortTable(R, C, debut){
   let h = "";
@@ -3672,6 +3726,7 @@ function debutHtml(J){
   if (D.warnings && D.warnings.length) h += '<p class="note">' + D.warnings.map(escH).join("<br>") + '</p>';
   h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0">' + escH(D.name) + '</span></h3><div class="form">' + formHtml({ mode: "新馬", odds: J.odds, rows: D.rows, forms: { x: D.form } }, "x") + '</div>';
   h += popFormHtml(Object.fromEntries(D.rows.filter(r => !r.dropped && r.pop != null).map(r => [r.num, r.pop])), J.odds);
+  h += '<div class="resbox">' + resultHtml(J) + '</div>';
   return h;
 }
 
@@ -3707,6 +3762,7 @@ function raceHtml(J, rid){
   if (J.dropped.length) h += '<p class="note">oddsJS で有効でない馬（馬番 ' + J.dropped.join("・") + '）は除いて計算しました。</p>';
   h += '<h3>フォーメーション表<br><span class="rid" style="margin-left:0" data-formname="1"></span></h3><div class="form">' + formHtml(J) + '</div>';
   h += popFormHtml(J.pops, J.odds);
+  h += '<div class="resbox">' + resultHtml(J) + '</div>';
   return h;
 }
 
@@ -3715,13 +3771,14 @@ function renderForms(){
     const J = RES[i] && RES[i][1]; if (!J) return;
     if (J.mode === "新馬") return;
     const d = sec.querySelector("div.form"); if (d) d.innerHTML = formHtml(J);
+    const rb = sec.querySelector("div.resbox"); if (rb) rb.innerHTML = resultHtml(J);
     const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
   });
 }
 $("selForm").addEventListener("change", renderForms);
 
 $("bRun").addEventListener("click", () => runWith([...$("fRace").files], [...$("fOdds").files]));
-async function runWith(raceFiles, oddsFiles){
+async function runWith(raceFiles, oddsFiles, resFiles){
   $("bRun").disabled = true; $("bCsv").disabled = true; $("out").innerHTML = ""; RES.length = 0;
   const OD = new Map();
   for (const f of oddsFiles){ const m = f.name.match(/(\d{16})/); if (!m) continue; if (!OD.has(m[1])) OD.set(m[1], []); OD.get(m[1]).push(f); }
@@ -3744,6 +3801,8 @@ async function runWith(raceFiles, oddsFiles){
         try { J.debutRes = JSON.parse(debutFn("/tmp/card.txt", "/tmp/rows.csv", rid, opath)); } catch (e) { J.debutRes = { ok: false, message: String(e) }; }
       }
       if (ofs.length > 1) J.oddsNote = ofs.length;
+      const rf = (resFiles || []).filter(x => (x.name.match(/(\d{16})/) || [])[1] === rid).sort((a, b) => a.name.localeCompare(b.name)).pop();
+      if (rf){ try { const rh = await decodeCard(rf); J.result = parseRes(new DOMParser().parseFromString(rh, "text/html")); J.result.file = rf.name; } catch (e) { J.result = { file: rf.name, error: String(e) }; } }
       RES.push([rid, J]); sec.innerHTML = raceHtml(J, rid) + (ofs.length > 1 ? '<p class="note">この レースの oddsJS が ' + ofs.length + ' 件あったので、ファイル名の順でいちばん後のもの（いちばん新しいもの）を使いました。</p>' : '');
       sec.querySelectorAll("table.sort").forEach(t => { sortable(t); fixLeft(t); });
       const s = sec.querySelector("[data-formname]"); if (s) s.textContent = $("selForm").value;
@@ -3841,9 +3900,15 @@ async function ghRun(od, F){
     if (!coefOK){ st("係数を読んでいます…"); if (!(await loadCoef(await ghGet(GH.coef, true)))){ st('<span class="bad">係数を確かめられませんでした（上の 1. を見てください）。</span>'); return; } }
     st("出走表と oddsJS を読んでいます…");
     const cb = await ghGet(card.path, true), ob = await ghGet(od.path, true);
+    let rfs = [], rnote = "";
+    try {   // レース後の結果（あれば）。fwd/＜日付＞/post/result_＜ID＞_＜時刻＞.txt のいちばん新しいもの
+      const pl = await ghGet(od.path.replace(/\/pre\/[^/]+$/, "/post"), false);
+      const r = (Array.isArray(pl) ? pl : []).map(x => x.name || "").filter(n => new RegExp("^result_" + od.rid + "_\\d{14}\\.txt$").test(n)).sort().pop();
+      if (r){ st("結果のページを読んでいます…"); rfs = [new File([await ghGet(od.path.replace(/\/pre\/[^/]+$/, "/post/" + r), true)], r)]; } else rnote = "（結果はまだ保存されていません）";
+    } catch (e){ rnote = e.status === 404 ? "（結果はまだ保存されていません）" : "（結果を読めませんでした: " + escH(e.message || e) + "）"; }
     st(Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + " 取得）を計算しています…");
-    await runWith([new File([cb], card.name)], [new File([ob], od.name)]);
-    st('<span class="ok">' + Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + ' 取得）を出しました。</span>使ったファイル: ' + escH(card.name) + "・" + escH(od.name));
+    await runWith([new File([cb], card.name)], [new File([ob], od.name)], rfs);
+    st('<span class="ok">' + Number(od.rid.slice(-2)) + "R（" + tsShow(od.ts) + ' 取得）を出しました。</span>使ったファイル: ' + escH(card.name) + "・" + escH(od.name) + (rfs.length ? "・" + escH(rfs[0].name) : "") + rnote);
     $("out").scrollIntoView({ behavior: "smooth" });
   } catch (e){ st('<span class="bad">' + escH(e.message || e) + '</span>'); }
 }
