@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>市場人気だけのフォーメーション表</h1>
-<div class="note">market-form-1.2 (2026-11-27)　自分用・試し</div>
+<div class="note">market-form-1.3 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -383,7 +383,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 
 </script><script>
-const VERSION='market-form-1.2 (2026-11-27)';const RES=[];
+const VERSION='market-form-1.3 (2026-11-27)';const RES=[];
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -398,12 +398,7 @@ async function decodeCard(f){
   return s;
 }
 
-const PF = { name: "人気 三連複（頭数別・1番人気軸）", rules: {
-  6:[3,[2],[4,6]], 7:[3,[5],[2,6]], 8:[2,[4,6],[3,7]],
-  9:[3,[2],[6,7]], 10:[2,[3,4],[5]], 11:[2,[3,8],[5,8,9]],
-  12:[3,[4,9],[2,10,11]], 13:[3,[4,5],[2,11]],
-  14:[3,[2,12],[4,8,11,13]], 15:[3,[5,9],[2,11]], 16:[3,[6],[2,5,8,14]]
-} };
+const PF = {name:"人気 三連複（頭数別）",rules:{"6":[[2],[4],[1,3]],"7":[[1],[5],[2,3,6]],"8":[[3],[1,6],[1,2,4]],"9":[[7],[2,3],[1,2,3,6]],"10":[[5],[1,4,6],[1,3,9]],"11":[[1],[3,8],[3,5,8,9]],"12":[[1],[2,9],[2,5,9,10,11]],"13":[[2],[4,7,9],[1,6,13]],"14":[[2],[3,9,10],[1,11,12]],"15":[[1],[4,5,9],[7,8,11]],"16":[[1],[6,9],[2,8,11,13,14]]}};
 function popForm(P){
   const entries = Object.entries(P || {}).map(([n,k]) => [Number(n),Number(k)]);
   const heads = entries.length, rule = PF.rules[heads], N = {};
@@ -414,13 +409,13 @@ function popForm(P){
       return {...empty,error:"人気順が不完全または重複しています。"};
     N[k]=n;
   }
-  const [excluded, BP, CP] = rule, AP=[1];
+  const [AP, BP, CP] = rule;
   const m = L => L.map(k=>N[k]).sort((a,b)=>a-b);
   const A=m(AP), B=m(BP), C=m(CP), tickets=new Set();
   A.forEach(a=>B.forEach(b=>C.forEach(c=>{
     if(a!==b && a!==c && b!==c) tickets.add([a,b,c].sort((x,y)=>x-y).join("-"));
   })));
-  return {A,B,C,T:[...tickets],heads,excluded,AP,BP,CP,name:PF.name+" "+heads+"頭・"+excluded+"番人気除外"};
+  return {A,B,C,T:[...tickets],heads,AP,BP,CP,name:PF.name+" "+heads+"頭"};
 }
 const TF={6:[[2,3],[1],[2,3]],7:[[2],[1],[3,5,7]],8:[[1,6],[2],[3,7,8]],9:[[1,7],[3],[2,4,6,7,9]],10:[[1],[3,4,6],[5,6,7]],11:[[1,2,9],[3],[1,2,4,5]],12:[[1],[2,3,11],[2,3,5,10]],13:[[1,4],[2],[3,4,5,7,13]],14:[[1,3],[2],[1,3,4,5,7,13]],15:[[1,3],[1,2,3,4,7,14],[6]],16:[[1],[4,5,15],[4,6,8]]};
 const WP={6:[[2],[2]],7:[[2,4],[]],8:[[],[]],9:[[1,2,7],[]],10:[[1,6,9],[]],11:[[1,3,4,5,10],[]],12:[[1,9],[]],13:[[1,4],[1,11]],14:[[3],[]],15:[[],[1]],16:[[1],[1]]};
