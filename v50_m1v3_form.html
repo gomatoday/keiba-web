@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>M1 v3 能力表とフォーメーション表</h1>
-<div class="note">m1v3-form-1.17 (2026-11-26)　自分用・試し</div>
+<div class="note">m1v3-form-1.18 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -3496,7 +3496,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 </script>
 <script>
-const VERSION = "m1v3-form-1.17 (2026-11-26)";
+const VERSION = "m1v3-form-1.18 (2026-11-27)";
 const CSHA = "cd6558f3c4753faf49c4edf59b45a11755d47a31297a8f45f2c3937b98d38382";
 const COLS = ["c1", "c2", "c3a", "c3b", "c4", "c4_欠け", "前走1着", "走の数", "中止の数", "取消除外の数", "能試の数", "直前の欄が普通でない", "距離差_-300以下", "距離差_-299〜-100", "距離差_+100〜+299", "距離差_+300以上", "距離経験_100〜299", "距離経験_300以上", "間隔_〜13", "間隔_14〜20", "間隔_28〜34", "間隔_35〜62", "間隔_63〜125", "間隔_126〜", "叩き2走目", "移籍元_中央", "移籍元_中央未勝利", "移籍元_他地区", "移籍後_1走目", "移籍後_2走目", "移籍後_3走目", "移籍後_4〜5走目", "年齢_2歳", "年齢_3歳", "年齢_6〜7歳", "年齢_8歳以上", "牝", "セン", "斤量の差", "減量あり", "R1", "R1_欠け", "H1", "H1_欠け"];
 const KINDS = ["単勝", "複勝", "枠連", "枠単", "馬連", "馬単", "ワイド", "三連複", "三連単"];
@@ -3611,25 +3611,42 @@ function formHtml(J, key){
   return h;
 }
 
-// 人気だけのフォーメーション（三連単 1,3,4→1,3,4,5,6,7→2。第1群・第2群で測った買い方。記録174・176）
-const PF = { name: "人気 三連単 1,3,4→1,3,4,5,6,7→2", A: [1, 3, 4], B: [1, 3, 4, 5, 6, 7], C: [2] };
-function popForm(P){   // P: {馬番: 人気}
-  const N = {}; Object.entries(P || {}).forEach(([n, k]) => { N[k] = Number(n); });
-  const m = L => L.filter(k => N[k] != null).map(k => N[k]);
-  const A = m(PF.A), B = m(PF.B), C = m(PF.C), T = [];
-  A.forEach(a => B.forEach(b => C.forEach(c => { if (a !== b && a !== c && b !== c) T.push(a + "-" + b + "-" + c); })));
-  return { A, B, C, T, heads: Object.keys(P || {}).length };
+// 人気だけの三連複（第1群の頭数別探索結果。事後最適化）
+const PF = { name: "人気 三連複（頭数別・1番人気軸）", rules: {
+  6:[3,[2],[4,6]], 7:[3,[5],[2,6]], 8:[2,[4,6],[3,7]],
+  9:[3,[2],[6,7]], 10:[2,[3,4],[5]], 11:[2,[3,8],[5,8,9]],
+  12:[3,[4,9],[2,10,11]], 13:[3,[4,5],[2,11]],
+  14:[3,[2,12],[4,8,11,13]], 15:[3,[5,9],[2,11]], 16:[3,[6],[2,5,8,14]]
+} };
+function popForm(P){
+  const entries = Object.entries(P || {}).map(([n,k]) => [Number(n),Number(k)]);
+  const heads = entries.length, rule = PF.rules[heads], N = {};
+  const empty = { A:[], B:[], C:[], T:[], heads, name:PF.name };
+  if (!rule) return {...empty, error:"対象外（6〜16頭立てのみ）"};
+  for (const [n,k] of entries){
+    if (!Number.isInteger(n) || n<1 || !Number.isInteger(k) || k<1 || k>heads || N[k]!=null)
+      return {...empty,error:"人気順が不完全または重複しています。"};
+    N[k]=n;
+  }
+  const [excluded, BP, CP] = rule, AP=[1];
+  const m = L => L.map(k=>N[k]).sort((a,b)=>a-b);
+  const A=m(AP), B=m(BP), C=m(CP), tickets=new Set();
+  A.forEach(a=>B.forEach(b=>C.forEach(c=>{
+    if(a!==b && a!==c && b!==c) tickets.add([a,b,c].sort((x,y)=>x-y).join("-"));
+  })));
+  return {A,B,C,T:[...tickets],heads,excluded,AP,BP,CP,name:PF.name+" "+heads+"頭・"+excluded+"番人気除外"};
 }
 function popFormHtml(P, odds){
-  let h = '<h3>フォーメーション表（人気だけ）<br><span class="rid" style="margin-left:0">' + escH(PF.name) + '</span></h3>';
-  if (!odds) return h + '<p class="note bad">oddsJS が無いので、人気を出せません。</p>';
-  const F = popForm(P), lab = (L, K) => L.length ? L.map((n, i) => n).join("・") : "–";
-  const pl = K => K.map(k => k + "番人気").join("・");
-  h += '<div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th class="l">1着</th><th class="l">2着</th><th class="l">3着</th><th style="text-align:center">点数</th></tr></thead><tbody>';
-  h += '<tr><td class="l">三連単</td><td class="l">' + lab(F.A.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.B.slice().sort((p, q) => p - q)) + '</td><td class="l">' + lab(F.C) + '</td><td style="text-align:center">' + F.T.length + '</td></tr>';
-  h += '</tbody></table></div><p class="note">1着　' + pl(PF.A) + '<br>2着　' + pl(PF.B) + '<br>3着　' + pl(PF.C) + '</p>';
-  h += '<p class="note">人気は読み込んだ oddsJS の単勝オッズの低い順（有効な馬だけ）。研究では確定人気で測った（第1群 87.9% [73.8, 104.5]・第2群 103.6% [50.4, 165.7]、的中率 12%前後。第2群は大きい当たり1本を除くと 80.3%）。100% 超が残ったとは言えない参考の買い方。' + (F.heads < 8 ? '<b class="bad">このレースは有効な馬が 8 頭未満で、研究の対象（1〜8番人気がそろうレース）に入りません。</b>' : '') + '</p>';
-  return h;
+  let h='<h3>フォーメーション表（人気だけ）<br><span class="rid" style="margin-left:0">'+escH(PF.name)+'</span></h3>';
+  if(!odds) return h+'<p class="note bad">oddsJS が無いので、人気を出せません。</p>';
+  const F=popForm(P);
+  if(F.error) return h+'<p class="note bad">'+escH(F.error)+'</p>';
+  const lab=L=>L.join("・"), pl=L=>L.map(k=>k+"番人気").join("・");
+  h+='<p class="note">'+F.heads+'頭立て・'+F.excluded+'番人気除外</p>';
+  h+='<div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th class="l">1列目（軸）</th><th class="l">2列目</th><th class="l">3列目</th><th style="text-align:center">点数</th></tr></thead><tbody>';
+  h+='<tr><td class="l">三連複</td><td class="l">'+lab(F.A)+'</td><td class="l">'+lab(F.B)+'</td><td class="l">'+lab(F.C)+'</td><td style="text-align:center">'+F.T.length+'</td></tr></tbody></table></div>';
+  h+='<p class="note">1列目　'+pl(F.AP)+'<br>2列目　'+pl(F.BP)+'<br>3列目　'+pl(F.CP)+'</p>';
+  return h+'<p class="note">人気は oddsJS の単勝オッズの低い順（有効な馬だけ）。第1群の確定人気による事後最適化の買い方で、将来の収益性は未確認。</p>';
 }
 
 // レース後の結果（GitHub の post/result_）。払戻は v50_payout_extract.html の parsePay と同じ読み方（スマートフォン向けの縦の表 .sp）。
@@ -3685,7 +3702,7 @@ function resultHtml(J){
     if (F0 && F0.length){ const a = F0[0].a, b = F0[0].b, C = CP.filter(([n, k]) => k <= 5 && n !== a && n !== b).map(([n]) => n);
       const wk = Object.fromEntries(J.rows.map(r => [r.num, r.waku])), T = ticketsOf(a, b, C, wk);
       groups.push([sel + "（1着 " + a + "・2着 " + b + "・3着 確定人気1〜5位 " + (C.length ? C.slice().sort((x, y) => x - y).join("・") : "–") + "）", F0.map(x => ({ kind: x.kind, tickets: T[x.kind] }))]); } }
-  if (CP.length){ const F = popForm(Object.fromEntries(CP)); groups.push([PF.name + "（確定人気）", [{ kind: "三連単", tickets: F.T.map(x => x.replace(/-/g, "→")) }]]); }
+  if (CP.length){ const F = popForm(Object.fromEntries(CP)); if (!F.error) groups.push([F.name + "（確定人気）", [{ kind: "三連複", tickets: F.T }]]); }
   if (J.mode !== "新馬" && Object.keys(J.forms || {}).length) h += '<div class="row fsw">' + FSW.map(([n, lab]) => '<button class="sub fswb" data-n="' + escH(n) + '" style="padding:4px 12px">' + lab + '</button>').join("") + '</div>';
   if (!groups.length) return h + '<p class="note">このレースには的中を調べる買い方がありません。</p>';
   groups.forEach(([name, F]) => {
@@ -3696,7 +3713,7 @@ function resultHtml(J){
       h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">' + (r.hit.length ? '<b class="ok">的中</b>（' + r.hit.join("・") + '）' : '不的中') + '</td><td style="text-align:right">' + (r.hit.length ? r.pay.toLocaleString() + "円" : "") + '</td>' + bt + '</tr>'; });
     h += '</tbody></table></div>';
   });
-  h += '<p class="note">1点100円として計算。3着の馬と人気だけの三連単は、結果のページの確定人気で作り直した買い目（締切前の oddsJS の人気で作った上のフォーメーション表と違うことがある）。複勝は1着・2着・3着の馬それぞれ、ワイドは1着-2着・1着-3着・2着-3着。払戻は下の払戻金の表から（当たった買い目の払戻の合計）。</p>';
+  h += '<p class="note">1点100円として計算。3着の馬と人気だけの三連複は、結果のページの確定人気で作り直した買い目（締切前の oddsJS の人気で作った上のフォーメーション表と違うことがある）。複勝は1着・2着・3着の馬それぞれ、ワイドは1着-2着・1着-3着・2着-3着。払戻は下の払戻金の表から（当たった買い目の払戻の合計）。</p>';
   // 払戻金の表（結果のページのとおり）
   const KN = { tan: "単勝", fuku: "複勝", wakuren: "枠連", wakutan: "枠単", umaren: "馬連", umatan: "馬単", wide: "ワイド", sanrenpuku: "三連複", sanrentan: "三連単" };
   h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table style="width:auto;min-width:18em"><thead><tr><th class="l">券種</th><th class="l">組番</th><th style="text-align:right">払戻</th><th style="text-align:right">人気</th></tr></thead><tbody>';
@@ -3850,7 +3867,7 @@ function csvText(){
   RES.forEach(([rid, J]) => { if (!J || !J.odds) return;
     const P = J.mode === "新馬" ? (J.debutRes && J.debutRes.ok ? Object.fromEntries(J.debutRes.rows.filter(r => !r.dropped && r.pop != null).map(r => [r.num, r.pop])) : null) : J.pops;
     if (!P) return; const F = popForm(P);
-    L.push([rid, PF.name, "三連単", F.A.join(" "), F.B.join(" "), F.C.join(" "), F.T.join(" "), F.T.length, VERSION].map(escC).join(",")); });
+    if (!F.error) L.push([rid, F.name, "三連複", F.A.join(" "), F.B.join(" "), F.C.join(" "), F.T.join(" "), F.T.length, VERSION].map(escC).join(",")); });
   L.push(""); L.push(["race_id", "debut_coef", "num", "name", "rank", "rank_debut_mode", "p_win_debut_mode", "score", "pop", "odds", "c_trial", "c_debut", "c_jkcourse", "c_sire", "c_jktr", "bw", "bw_z", "sex", "birth", "jockey_aff", "dropped", "page_ver"].join(","));
   RES.forEach(([rid, J]) => { if (!J || !J.debutRes || !J.debutRes.ok) return; const D = J.debutRes;
     D.rows.forEach(r => L.push([rid, D.name, r.num, r.name, r.rank, r.rank0, r.p0, r.score, r.pop, r.odds].concat(r.parts, [r.bw, r.bw_z, r.sex, r.birth, r.aff, r.dropped ? 1 : 0, VERSION]).map(escC).join(",")));
