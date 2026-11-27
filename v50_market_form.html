@@ -25,9 +25,10 @@ table.sort th.asc::after{content:" ▲";color:var(--acc)}table.sort th.desc::aft
 tr.top td{background:var(--hi)}
 .rid{color:var(--sub);font-size:.8rem;font-weight:400;margin-left:.5em}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
+button.ghR.selected{background:var(--acc);color:white;font-weight:700}.formation{table-layout:fixed;width:100%;white-space:normal}.formation th,.formation td{padding:5px 3px;text-align:center;vertical-align:middle}.formation .kind{width:4.2em;text-align:left}.formation .check{width:1.8em}.formation .points{width:2.6em}.formation .nums{overflow-wrap:anywhere;word-break:normal}.formation input{width:17px;height:17px;accent-color:var(--acc);margin:0}.result-table tr.purchased td{background:#e4efff}.result-table tr.hit td{background:#ffe4e4}.result-table tr.purchased td:first-child{box-shadow:inset 4px 0 #2456c9;font-weight:700}.result-table tr.hit.purchased td:first-child{box-shadow:inset 4px 0 #2456c9}.result-table .hit-label{color:#b3261e;font-weight:700}@media(max-width:480px){main{padding:8px}section{padding:10px 8px}.formation{font-size:.78rem}.formation .kind{width:3.8em}.formation .check{width:1.5em}.formation .points{width:2.4em}}
 </style></head><body><main>
 <h1>市場人気だけのフォーメーション表</h1>
-<div class="note">market-form-1.5 (2026-11-27)　自分用・試し</div>
+<div class="note">market-form-1.6 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -35,7 +36,7 @@ tr.top td{background:var(--hi)}
 <div class="row" id="ghTokRow" style="display:none"><input type="password" id="ghTok" placeholder="読み取り専用のトークン" autocomplete="off" style="flex:1;min-width:12em;font:inherit;padding:6px 8px"><button id="ghSave">覚えさせる</button></div>
 <p class="note">keiba-data（非公開）の fwd/＜日付＞/pre/ から出走表（card_）と oddsJS（oddspre_）を読みます。読むだけです。トークンは keiba-data の Contents の読み取りだけを許したもの。この端末のこのブラウザだけが覚えます（見通しのページと共通）。<a href="#" id="ghForget">トークンを忘れさせる</a></p>
 </section>
-<section><h2>1. 出走表を選ぶ</h2><div class="row"><input type="file" id="fRace" multiple accept=".txt,.html,.htm"></div><p class="note">ファイル名に16桁のレースIDを含むもの。複数選択できます。</p><h2>2. oddsJS を選ぶ</h2><div class="row"><input type="file" id="fOdds" multiple><span id="oddsCnt" class="note">0件</span></div><p class="note">出走表と同じレースIDのファイルを選択。</p><div class="row"><button id="bRun" disabled>計算する</button><span id="boot" class="note">準備ができました。</span></div><div id="status" class="note"></div></section><section><div class="warn">第1群の確定人気で事後最適化した参考フォーメーションです。独立検証は未実施。締切前の人気は確定人気と異なる場合があります。</div><div class="row"><button id="bCsv" class="sub" disabled>フォーメーション表を CSV で保存</button></div></section><div id="out"></div><section><h2>このページについて</h2><p class="note">三連複は1番人気軸、8・10・11頭は2番人気除外、その他は3番人気除外。三連単は直近の探索結果（10点以内・的中率10%以上・回収率95%区間下限60%以上で抽出）。6〜16頭のみ。能力や係数は使いません。同オッズは馬番順。</p></section></main><script>
+<section><div class="warn">第1群の確定人気で事後最適化した参考フォーメーションです。独立検証は未実施。締切前の人気は確定人気と異なる場合があります。</div></section><div id="out"></div><section><h2>このページについて</h2><p class="note">第一群の確定市場人気を用いた検証結果に基づき、頭数別・券種別に買い目を設定しています。</p><p class="note">単勝・複勝・馬連・馬単・ワイドは、的中率10%以上、回収率95%区間下限70%以上・上限100%以上を基本とした採用結果です。</p><p class="note">三連複は10点以内、的中率10%以上、回収率100%以上、回収率95%区間下限70%以上。ただし7頭立ては下限が最も高い買い目（57.59%）を採用しています。</p><p class="note">三連単は10点以内、的中率10%以上、回収率95%区間下限60%以上の採用結果です。</p><p class="note">対象は6〜16頭立て。能力指数や係数は使用せず、取得時点の単勝オッズから人気順位を算出します。同オッズの場合は馬番順とします。第一群の検証成績は独立検証によるものではありません。</p></section></main><script>
 const LT = (function(){
 /* learn_core: v50_learn_table.html（learn-table-1, SHA-256 3a794b60366891a4…）の69〜79行と96〜350行をそのまま切り出したもの */
 const norm = s => (s || "").replace(/[\s　]+/g, " ").trim();
@@ -383,7 +384,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 
 </script><script>
-const VERSION='market-form-1.5 (2026-11-27)';const RES=[];
+const VERSION='market-form-1.6 (2026-11-27)';const RES=[];
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -423,7 +424,10 @@ const PAIR={"6":[[[2],[1,4]],[[2],[1]],[[],[]]],"7":[[[4],[1,7]],[[2],[1]],[[],[
 function forms(P){const f=popForm(P);if(f.error)return [];const N=Object.fromEntries(Object.entries(P).map(([n,k])=>[k,+n]));const [A,B,C]=TF[f.heads].map(L=>L.map(k=>N[k]).sort((a,b)=>a-b));const T=[];for(const a of A)for(const b of B)for(const c of C)if(a!==b&&a!==c&&b!==c)T.push([a,b,c].join("-"));return [...WP[f.heads].map((L,i)=>{const A=L.map(k=>N[k]).sort((a,b)=>a-b),kind=i?"複勝":"単勝";return {heads:f.heads,A,B:[],C:[],T:A.map(String),kind,name:"人気 "+kind+" "+f.heads+"頭",ranks:[L]};}),...PAIR[f.heads].map((ranks,i)=>{const [A,B]=ranks.map(L=>L.map(k=>N[k]).sort((a,b)=>a-b)),kind=["馬連","馬単","ワイド"][i],T=[...new Set(A.flatMap(a=>B.filter(b=>a!==b).map(b=>(i===1?[a,b]:[a,b].sort((x,y)=>x-y)).join("-"))))];return {heads:f.heads,A,B,C:[],T,kind,name:"人気 "+kind+" "+f.heads+"頭",ranks};}),{...f,kind:"三連複",ranks:[f.AP,f.BP,f.CP]},{A,B,C,T,kind:"三連単",name:"人気 三連単 "+f.heads+"頭",ranks:TF[f.heads]}];}
 const G1STATS={"6":[[128,1,43,33.59,100.7,76.11,125.37],[128,1,81,63.28,89.92,77.63,102.36],[128,2,71,55.47,112.03,81.48,145.11],[128,1,29,22.66,126.02,82.84,174.59],null,[128,2,40,31.25,113.2,72.29,161.3],[128,2,20,15.63,169.8,88.38,258.46]],"7":[[217,2,72,33.18,89.72,71.32,109.21],null,[217,2,26,11.98,109.59,34.62,220.53],[217,1,30,13.82,109.49,71.4,148.38],null,[217,3,42,19.35,101.66,57.59,157.16],[217,3,24,11.06,118.86,68.38,175.11]],"8":[null,null,[269,2,32,11.9,114.35,33.1,236.64],[269,3,31,11.52,107.55,52.85,178.79],null,[269,5,101,37.55,100.07,72.21,130.21],[269,6,28,10.41,268.3,60.34,546.65]],"9":[[486,3,342,70.37,89.51,71.48,110.98],null,[486,2,135,27.78,118.19,71.79,177.55],[486,2,63,12.96,126.3,76.54,190.31],[486,2,62,12.76,105.6,78.44,132.8],[486,5,52,10.7,115.85,73.24,169.89],[486,9,49,10.08,180.63,68.55,328.44]],"10":[[617,3,336,54.46,103.52,72.53,142.31],null,null,[617,5,62,10.05,130.59,70.83,210.17],[617,2,148,23.99,102.16,75.59,132.36],[617,8,96,15.56,142.92,73.59,236.43],[617,8,63,10.21,137.66,96.59,186.89]],"11":[[846,5,622,73.52,87.61,70.31,108.07],null,[846,2,141,16.67,106.21,70.92,147.22],[846,3,95,11.23,155.22,72.72,255.69],[846,2,300,35.46,101,79.7,124.57],[846,5,87,10.28,111.31,80.4,150.92],[846,10,88,10.4,207.4,61.56,418.35]],"12":[[1560,2,672,43.08,91.74,72.27,114.17],null,[1560,3,218,13.97,116.28,70.71,171.78],[1560,2,206,13.21,103.97,68.03,154.57],null,[1560,7,171,10.96,120.92,75.23,179.96],[1560,10,161,10.32,134.44,74.59,208.07]],"13":[[491,2,256,52.14,87.67,75.84,100.08],[491,2,355,72.3,87.45,70.67,106.01],[491,6,87,17.72,138.08,70.24,234.37],[491,2,52,10.59,162.45,83.21,268.13],[491,2,55,11.2,115.82,81.79,156.35],[491,9,69,14.05,256.31,70.2,514.36],[491,9,50,10.18,186.59,65.85,358.77]],"14":[[684,1,99,14.47,89.01,71.86,107.09],null,[684,4,84,12.28,106.78,71.59,148.15],[684,3,100,14.62,129.45,81.25,185.24],[684,2,90,13.16,105.6,71.79,146.63],[684,9,90,13.16,183.61,75.72,317.25],[684,10,70,10.23,107.01,63.41,160.68]],"15":[null,[77,1,57,74.03,91.04,79.09,102.99],[77,1,13,16.88,132.99,70.71,200.93],[77,4,8,10.39,323.15,42.79,792.79],[77,4,38,49.35,116.27,71.21,174.22],[77,9,11,14.29,257.62,73.54,530.66],[77,10,8,10.39,1030.56,70.11,3016.41]],"16":[[107,1,52,48.6,103.93,82.4,126.3],[107,1,82,76.64,98.88,88.58,108.72],[107,2,13,12.15,705.23,30.54,2027.96],[107,4,11,10.28,480.19,41.14,1266.91],[107,2,28,26.17,315.42,45.33,729.41],[107,10,12,11.21,332.58,77.94,674.27],[107,8,11,10.28,1210.4,67.61,3462.11]]};
 function g1StatsHtml(F){const kinds=["単勝","複勝","馬連","馬単","ワイド","三連複","三連単"];const pct=v=>v.toFixed(2)+"%";let h='<h3>第一群での採用データ（'+F[0].heads+'頭立て）</h3><div class="scroll"><table><thead><tr><th class="l">券種</th><th>レース数</th><th>的中数</th><th>点数</th><th>的中率</th><th>回収率</th><th>回収率95%区間</th></tr></thead><tbody>';for(const f of F){const d=G1STATS[f.heads]?.[kinds.indexOf(f.kind)];const cells=f.T.length&&d&&d[1]===f.T.length?[d[0],d[2],d[1],pct(d[3]),pct(d[4]),pct(d[5])+" ～ "+pct(d[6])]:Array(6).fill("-");h+='<tr><td class="l">'+f.kind+'</td>'+cells.map(v=>'<td>'+v+'</td>').join("")+'</tr>';}return h+'</tbody></table></div><p class="note">第一群：2025/01/01～2026/09/11。確定市場人気による採用時の検証成績（1点100円）。独立検証ではありません。95%区間は回収率の区間。買い目なしは「-」。</p>';}
-function popFormHtml(P,odds){let h='<h3>フォーメーション表（人気だけ）</h3>';if(!odds)return h+'<p class="bad">oddsJS がありません。</p>';const F=forms(P);if(!F.length)return h+'<p class="bad">'+escH(popForm(P).error)+'</p>';h+='<p class="note">'+F[0].heads+'頭立て</p><div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th>1列目／1着</th><th>2列目／2着</th><th>3列目／3着</th><th>点数</th></tr></thead><tbody>';for(const f of F)h+='<tr><td class="l">'+f.kind+'</td>'+[f.A,f.B,f.C].map(L=>'<td>'+(L.join("・")||"-")+'</td>').join("")+'<td>'+(f.T.length||"-")+'</td></tr>';return h+'</tbody></table></div>'+F.map(f=>'<p class="note">'+f.kind+'（人気）: '+f.ranks.map(L=>L.join("・")||"-").join(" → ")+'</p>').join("")+g1StatsHtml(F);}
+const boughtKey=(rid,kind)=>"market_bought:"+rid+":"+kind;
+const bought=(rid,kind)=>{try{return localStorage.getItem(boughtKey(rid,kind))==="1"}catch(e){return false}};
+function bindBought(sec,rid){for(const c of sec.querySelectorAll("input[data-buy]")){c.onchange=()=>{try{localStorage.setItem(boughtKey(rid,c.dataset.buy),c.checked?"1":"0")}catch(e){}for(const row of sec.querySelectorAll("tr[data-kind]"))if(row.dataset.kind===c.dataset.buy)row.classList.toggle("purchased",c.checked);};}}
+function popFormHtml(P,odds,rid){let h='<h3>フォーメーション表（人気だけ）</h3>';if(!odds)return h+'<p class="bad">oddsJS がありません。</p>';const F=forms(P);if(!F.length)return h+'<p class="bad">'+escH(popForm(P).error)+'</p>';h+='<p class="note">'+F[0].heads+'頭立て</p><table class="formation"><thead><tr><th class="check"></th><th class="kind">券種</th><th>1着</th><th>2着</th><th>3着</th><th class="points">点数</th></tr></thead><tbody>';for(const f of F)h+='<tr><td><input type="checkbox" aria-label="'+f.kind+'を購入" data-buy="'+f.kind+'" '+(f.T.length?(bought(rid,f.kind)?'checked':''):'disabled')+'></td><td class="kind">'+f.kind+'</td>'+[f.A,f.B,f.C].map(L=>'<td class="nums">'+(L.join("・<wbr>")||"-")+'</td>').join("")+'<td>'+(f.T.length||"-")+'</td></tr>';return h+'</tbody></table>'+F.map(f=>'<p class="note">'+f.kind+'（人気）: '+f.ranks.map(L=>L.join("・")||"-").join(" → ")+'</p>').join("")+g1StatsHtml(F);}
 function readOdds(t,rows){const b=t.match(/var\s+odds_tan\s*=\s*\{([\s\S]*?)\};/);if(!b)throw Error("odds_tan を読めません");const M=new Map();for(const m of b[1].matchAll(/"(\d+)"\s*:\s*\[\s*"([^"]*)"\s*,\s*(true|false)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]/g))M.set(+m[1],{valid:m[3]==="true",odds:+m[2]});const active=rows.filter(r=>r.h_scratched!=="1"&&r.h_num);if(active.some(r=>!M.has(+r.h_num)))throw Error("出走表の馬のオッズが不足");const valid=active.filter(r=>M.get(+r.h_num).valid);if(valid.some(r=>!Number.isFinite(M.get(+r.h_num).odds)||M.get(+r.h_num).odds<=0))throw Error("有効馬のオッズが不正");valid.sort((a,b)=>M.get(+a.h_num).odds-M.get(+b.h_num).odds||+a.h_num-+b.h_num);return {pops:Object.fromEntries(valid.map((r,i)=>[r.h_num,i+1])),status:(t.match(/var\s+odds_status\s*=\s*"([^"]*)"/)||[])[1]||"",update:(t.match(/var\s+update_time\s*=\s*"([^"]*)"/)||[])[1]||""};}
 const PKIND = { "単勝": "tan", "複勝": "fuku", "枠複": "wakuren", "普通馬複": "umaren", "枠単": "wakutan", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
 const K2P = { "単勝": "tan", "複勝": "fuku", "枠連": "wakuren", "枠単": "wakutan", "馬連": "umaren", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
@@ -454,7 +458,7 @@ function hitOf(Rz, kind, tickets){   // 1点100円。当たった買い目の払
   let pay = 0; const hit = []; new Set(tickets.map(t => ckey(k, t))).forEach(t => { if (P.has(t)){ pay += P.get(t); hit.push(t); } });
   return { pay, hit, sold: P.size > 0 };
 }
-function resultHtml(J){
+function resultHtml(J,rid){
   const Rz = J.result; if (!Rz) return "";
   let h = '<h3>結果<br><span class="rid" style="margin-left:0">' + escH(Rz.file) + '</span></h3>';
   if (Rz.error) return h + '<p class="bad">結果のページを読めませんでした: ' + escH(Rz.error) + '</p>';
@@ -465,26 +469,22 @@ function resultHtml(J){
   const counts = new Map();
   for(const x of Rz.pays) counts.set(x.kind,(counts.get(x.kind)||0)+1);
   const seen = new Set();
-  h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table style="width:auto;min-width:18em"><thead><tr><th class="l">券種</th><th class="l">組番</th><th>払戻</th><th>人気</th><th>結果</th><th>点数</th><th>払戻金</th></tr></thead><tbody>';
+  h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table class="result-table" style="width:100%"><thead><tr><th class="l">券種</th><th class="l">組番</th><th>払戻</th><th>人気</th><th>結果</th><th>点数</th></tr></thead><tbody>';
   for(const x of Rz.pays){
     const first=!seen.has(x.kind), f=F.get(x.kind);
-    h+='<tr><td class="l">'+(first?escH(KN[x.kind]||x.kind):"")+'</td><td class="l">'+escH(x.combo)+'</td><td>'+(Number.isFinite(x.pay)?x.pay.toLocaleString()+"円":"")+'</td><td>'+escH(x.pop||"")+'</td>';
+    const label=KN[x.kind]||x.kind, r=f&&f.T.length?hitOf(Rz,f.kind,f.T):null;
+    h+='<tr data-kind="'+escH(label)+'" class="'+(f&&f.T.length&&bought(rid,label)?'purchased ':'')+(r&&r.hit.length?'hit':'')+'"><td class="l">'+(first?escH(label):"")+'</td><td class="l">'+escH(x.combo)+'</td><td>'+(Number.isFinite(x.pay)?x.pay.toLocaleString()+"円":"")+'</td><td>'+escH(x.pop||"")+'</td>';
     if(first){
-      const r=f&&f.T.length?hitOf(Rz,f.kind,f.T):null;
-      const cells=r&&r.sold?[r.hit.length?'<b class="ok">的中</b>':'不的中',f.T.length,r.pay.toLocaleString()+"円"]:["-","-","-"];
+      const cells=r&&r.sold?[r.hit.length?'<b class="hit-label">的中</b>':'不的中',f.T.length]:["-","-"];
       h+=cells.map(v=>'<td rowspan="'+counts.get(x.kind)+'">'+v+'</td>').join("");
     }
     seen.add(x.kind);h+='</tr>';
   }
-  h+='</tbody></table></div><p class="note">表示時の人気による買い目を照合。1点100円。結果・点数・払戻金は券種ごとの合計。買い目なしは「-」。</p>'+(Rz.memo?'<p class="note">備考: '+escH(Rz.memo)+'</p>':'');
+  h+='</tbody></table></div><p class="note">表示時の人気による買い目を照合。1点100円。結果・点数は券種ごとの集計。青は購入、薄赤は的中（購入済みは左端に青線）。買い目なしは「-」。</p>'+(Rz.memo?'<p class="note">備考: '+escH(Rz.memo)+'</p>':'');
   return h;
 }
-function raceHtml(J,rid){const I=J.info;return '<h2>'+escH((I.r_venue||"")+" "+I.r_rno+"R　"+I.r_surface+I.r_dist+"m・"+Object.keys(J.pops).length+"頭")+'<br><span class="rid">'+escH(rid+"　発走 "+I.r_post_time+"　"+I.r_title_raw)+'</span></h2><p class="note">oddsJS: 更新 '+escH(J.odds.update)+'（状態 '+escH(J.odds.status)+'）</p>'+popFormHtml(J.pops,J.odds)+resultHtml(J);}
-function refresh(){$("bRun").disabled=!($("fRace").files.length&&$("fOdds").files.length);}
-$("fRace").onchange=refresh;$("fOdds").onchange=()=>{$("oddsCnt").textContent=$("fOdds").files.length+"件";refresh();};
-$("bRun").onclick=()=>runWith([...$("fRace").files],[...$("fOdds").files]);
-async function runWith(raceFiles,oddsFiles,resFiles=[]){$("bRun").disabled=true;$("bCsv").disabled=true;$("out").innerHTML="";RES.length=0;for(const f of raceFiles){const rid=(f.name.match(/\d{16}/)||[])[0];const sec=document.createElement("section");$("out").appendChild(sec);try{if(!rid)throw Error("レースIDなし");const t=await decodeCard(f),cr=LT.cardRows(rid,t,new DOMParser().parseFromString(t,"text/html"));if(!cr.rows.length)throw Error(cr.prob.join("；"));const o=oddsFiles.filter(x=>x.name.includes(rid)).sort((a,b)=>a.name.localeCompare(b.name)).pop();if(!o)throw Error("oddsJS なし");const od=readOdds(await decodeCard(o),cr.rows);const J={info:cr.rows[0],odds:od,pops:od.pops};const rf=resFiles.filter(x=>x.name.includes(rid)).sort((a,b)=>a.name.localeCompare(b.name)).pop();if(rf){try{J.result=parseRes(new DOMParser().parseFromString(await decodeCard(rf),"text/html"));J.result.file=rf.name;}catch(e){J.result={file:rf.name,error:String(e)};}}sec.innerHTML=raceHtml(J,rid);RES.push([rid,J]);}catch(e){sec.innerHTML='<p class="bad">'+escH((rid||f.name)+": "+e)+'</p>';}}$("status").textContent="終わりました（"+raceFiles.length+" レース）。";$("bCsv").disabled=!RES.some(([r,J])=>forms(J.pops).length);refresh();}
-function csvText(){const L=[["race_id","type","a","b","c","tickets","points","page_ver"].join(",")];for(const [rid,J] of RES)for(const f of forms(J.pops))L.push([rid,f.kind,f.A.join(" "),f.B.join(" "),f.C.join(" "),f.T.join(" "),f.T.length,VERSION].map(escC).join(","));return "\ufeff"+L.join("\r\n")+"\r\n";}
+function raceHtml(J,rid){const I=J.info;return '<h2>'+escH((I.r_venue||"")+" "+I.r_rno+"R　"+I.r_surface+I.r_dist+"m・"+Object.keys(J.pops).length+"頭")+'<br><span class="rid">'+escH(rid+"　発走 "+I.r_post_time+"　"+I.r_title_raw)+'</span></h2><p class="note">oddsJS: 更新 '+escH(J.odds.update)+'（状態 '+escH(J.odds.status)+'）</p>'+popFormHtml(J.pops,J.odds,rid)+resultHtml(J,rid);}
+async function runWith(raceFiles,oddsFiles,resFiles=[]){$("out").innerHTML="";RES.length=0;for(const f of raceFiles){const rid=(f.name.match(/\d{16}/)||[])[0];const sec=document.createElement("section");$("out").appendChild(sec);try{if(!rid)throw Error("レースIDなし");const t=await decodeCard(f),cr=LT.cardRows(rid,t,new DOMParser().parseFromString(t,"text/html"));if(!cr.rows.length)throw Error(cr.prob.join("；"));const o=oddsFiles.filter(x=>x.name.includes(rid)).sort((a,b)=>a.name.localeCompare(b.name)).pop();if(!o)throw Error("oddsJS なし");const od=readOdds(await decodeCard(o),cr.rows);const J={info:cr.rows[0],odds:od,pops:od.pops};const rf=resFiles.filter(x=>x.name.includes(rid)).sort((a,b)=>a.name.localeCompare(b.name)).pop();if(rf){try{J.result=parseRes(new DOMParser().parseFromString(await decodeCard(rf),"text/html"));J.result.file=rf.name;}catch(e){J.result={file:rf.name,error:String(e)};}}sec.innerHTML=raceHtml(J,rid);bindBought(sec,rid);RES.push([rid,J]);}catch(e){sec.innerHTML='<p class="bad">'+escH((rid||f.name)+": "+e)+'</p>';}}}
 const GH = { api: "https://api.github.com/repos/gomatoday/keiba-data/contents/", key: "fwd_ro_token", coef: "fwd/code/m1v3form/m1v3form_coef.json", par: "fwd/code/v5.0-own-3/v50_params.json" };
 const tokGet = () => { try { return localStorage.getItem(GH.key) || ""; } catch (e) { return ""; } };
 const tokSet = v => { try { if (v) localStorage.setItem(GH.key, v); else localStorage.removeItem(GH.key); return true; } catch (e) { return false; } };
@@ -533,7 +533,7 @@ async function ghStart(pickDay){
   const OD = F.filter(x => x.kind === "oddspre").sort((a, b) => (a.rid + a.ts).localeCompare(b.rid + b.ts));
   if (!OD.length){ ghMsg("この日（" + day + "）の締切前のファイル（oddspre_）はまだありません。"); return; }
   let h = '<div>' + day.slice(0, 4) + "/" + day.slice(4, 6) + "/" + day.slice(6) + ' の締切前のファイル（押すとそのレースを計算します）:</div><div class="row">';
-  OD.forEach((x, i) => { h += '<button class="ghR sub" data-i="' + i + '" style="padding:4px 10px">' + Number(x.rid.slice(-2)) + 'R ' + tsShow(x.ts) + '</button>'; });
+  OD.forEach((x, i) => { h += '<button class="ghR sub" data-i="' + i + '" data-name="' + x.name + '" style="padding:4px 10px">' + Number(x.rid.slice(-2)) + 'R ' + tsShow(x.ts) + '</button>'; });
   ghMsg(h + '</div><div id="ghSt" class="note"></div>');
   document.querySelectorAll(".ghR").forEach(b => b.onclick = () => ghRun(OD[+b.dataset.i], F));
   if (rid){
@@ -542,6 +542,7 @@ async function ghStart(pickDay){
   }
 }
 async function ghRun(od, F){
+  document.querySelectorAll(".ghR").forEach(b=>{const active=b.dataset.name===od.name;b.classList.toggle("selected",active);b.setAttribute("aria-pressed",String(active));});
   const st = m => { $("ghSt").innerHTML = m; };
   try {
     const cs = F.filter(x => x.kind === "card" && x.rid === od.rid && x.ts <= od.ts).sort((a, b) => a.ts.localeCompare(b.ts));
@@ -564,4 +565,4 @@ async function ghRun(od, F){
 $("ghSave").onclick = () => { const v = $("ghTok").value.trim(); if (!v) return; if (!tokSet(v)){ ghMsg('<span class="bad">このブラウザでは覚えさせられません（プライベートブラウズでは使えないことがあります）。</span>'); return; } $("ghTok").value = ""; ghDays = null; ghStart(); };
 $("ghForget").onclick = e => { e.preventDefault(); tokSet(""); ghDays = null; $("ghDayRow").style.display = "none"; $("ghTokRow").style.display = ""; ghMsg("トークンを忘れさせました。"); };
 ghStart();
-$("bCsv").onclick=()=>saveBytes(new TextEncoder().encode(csvText()),"market_form_"+nowStamp(new Date())+".csv");</script></body></html>
+</script></body></html>
