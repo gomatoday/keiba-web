@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>市場人気だけのフォーメーション表</h1>
-<div class="note">market-form-1.0 (2026-11-27)　自分用・試し</div>
+<div class="note">market-form-1.1 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -383,7 +383,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 
 </script><script>
-const VERSION='market-form-1.0 (2026-11-27)';const RES=[];
+const VERSION='market-form-1.1 (2026-11-27)';const RES=[];
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -423,8 +423,9 @@ function popForm(P){
   return {A,B,C,T:[...tickets],heads,excluded,AP,BP,CP,name:PF.name+" "+heads+"頭・"+excluded+"番人気除外"};
 }
 const TF={6:[[2,3],[1],[2,3]],7:[[2],[1],[3,5,7]],8:[[1,6],[2],[3,7,8]],9:[[1,7],[3],[2,4,6,7,9]],10:[[1],[3,4,6],[5,6,7]],11:[[1,2,9],[3],[1,2,4,5]],12:[[1],[2,3,11],[2,3,5,10]],13:[[1,4],[2],[3,4,5,7,13]],14:[[1,3],[2],[1,3,4,5,7,13]],15:[[1,3],[1,2,3,4,7,14],[6]],16:[[1],[4,5,15],[4,6,8]]};
-function forms(P){const f=popForm(P);if(f.error)return [];const N=Object.fromEntries(Object.entries(P).map(([n,k])=>[k,+n]));const [A,B,C]=TF[f.heads].map(L=>L.map(k=>N[k]).sort((a,b)=>a-b));const T=[];for(const a of A)for(const b of B)for(const c of C)if(a!==b&&a!==c&&b!==c)T.push([a,b,c].join("-"));return [{...f,kind:"三連複",ranks:[f.AP,f.BP,f.CP]},{A,B,C,T,kind:"三連単",name:"人気 三連単 "+f.heads+"頭",ranks:TF[f.heads]}];}
-function popFormHtml(P,odds){let h='<h3>フォーメーション表（人気だけ）</h3>';if(!odds)return h+'<p class="bad">oddsJS がありません。</p>';const F=forms(P);if(!F.length)return h+'<p class="bad">'+escH(popForm(P).error)+'</p>';h+='<p class="note">'+F[0].heads+'頭立て</p><div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th>1列目／1着</th><th>2列目／2着</th><th>3列目／3着</th><th>点数</th></tr></thead><tbody>';for(const f of F)h+='<tr><td class="l">'+f.kind+'</td>'+[f.A,f.B,f.C].map(L=>'<td>'+L.join("・")+'</td>').join("")+'<td>'+f.T.length+'</td></tr>';return h+'</tbody></table></div>'+F.map(f=>'<p class="note">'+f.kind+'（人気）: '+f.ranks.map(L=>L.join("・")).join(" → ")+'</p>').join("");}
+const WP={6:[[2],[2]],7:[[2,4],[]],8:[[],[]],9:[[1,2,7],[]],10:[[1,6,9],[]],11:[[1,3,4,5,10],[]],12:[[1,9],[]],13:[[1,4],[1,11]],14:[[3],[]],15:[[],[1]],16:[[1],[1]]};
+function forms(P){const f=popForm(P);if(f.error)return [];const N=Object.fromEntries(Object.entries(P).map(([n,k])=>[k,+n]));const [A,B,C]=TF[f.heads].map(L=>L.map(k=>N[k]).sort((a,b)=>a-b));const T=[];for(const a of A)for(const b of B)for(const c of C)if(a!==b&&a!==c&&b!==c)T.push([a,b,c].join("-"));return [...WP[f.heads].map((L,i)=>{const A=L.map(k=>N[k]).sort((a,b)=>a-b),kind=i?"複勝":"単勝";return {heads:f.heads,A,B:[],C:[],T:A.map(String),kind,name:"人気 "+kind+" "+f.heads+"頭",ranks:[L]};}),{...f,kind:"三連複",ranks:[f.AP,f.BP,f.CP]},{A,B,C,T,kind:"三連単",name:"人気 三連単 "+f.heads+"頭",ranks:TF[f.heads]}];}
+function popFormHtml(P,odds){let h='<h3>フォーメーション表（人気だけ）</h3>';if(!odds)return h+'<p class="bad">oddsJS がありません。</p>';const F=forms(P);if(!F.length)return h+'<p class="bad">'+escH(popForm(P).error)+'</p>';h+='<p class="note">'+F[0].heads+'頭立て</p><div class="scroll"><table style="width:auto;min-width:24em"><thead><tr><th class="l">券種</th><th>1列目／1着</th><th>2列目／2着</th><th>3列目／3着</th><th>点数</th></tr></thead><tbody>';for(const f of F)h+='<tr><td class="l">'+f.kind+'</td>'+[f.A,f.B,f.C].map(L=>'<td>'+(L.join("・")||"-")+'</td>').join("")+'<td>'+(f.T.length||"-")+'</td></tr>';return h+'</tbody></table></div>'+F.map(f=>'<p class="note">'+f.kind+'（人気）: '+f.ranks.map(L=>L.join("・")||"-").join(" → ")+'</p>').join("");}
 function readOdds(t,rows){const b=t.match(/var\s+odds_tan\s*=\s*\{([\s\S]*?)\};/);if(!b)throw Error("odds_tan を読めません");const M=new Map();for(const m of b[1].matchAll(/"(\d+)"\s*:\s*\[\s*"([^"]*)"\s*,\s*(true|false)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]/g))M.set(+m[1],{valid:m[3]==="true",odds:+m[2]});const active=rows.filter(r=>r.h_scratched!=="1"&&r.h_num);if(active.some(r=>!M.has(+r.h_num)))throw Error("出走表の馬のオッズが不足");const valid=active.filter(r=>M.get(+r.h_num).valid);if(valid.some(r=>!Number.isFinite(M.get(+r.h_num).odds)||M.get(+r.h_num).odds<=0))throw Error("有効馬のオッズが不正");valid.sort((a,b)=>M.get(+a.h_num).odds-M.get(+b.h_num).odds||+a.h_num-+b.h_num);return {pops:Object.fromEntries(valid.map((r,i)=>[r.h_num,i+1])),status:(t.match(/var\s+odds_status\s*=\s*"([^"]*)"/)||[])[1]||"",update:(t.match(/var\s+update_time\s*=\s*"([^"]*)"/)||[])[1]||""};}
 const PKIND = { "単勝": "tan", "複勝": "fuku", "枠複": "wakuren", "普通馬複": "umaren", "枠単": "wakutan", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
 const K2P = { "単勝": "tan", "複勝": "fuku", "枠連": "wakuren", "枠単": "wakutan", "馬連": "umaren", "馬単": "umatan", "ワイド": "wide", "三連複": "sanrenpuku", "三連単": "sanrentan" };
@@ -461,7 +462,7 @@ function resultHtml(J){
   if (Rz.error) return h + '<p class="bad">結果のページを読めませんでした: ' + escH(Rz.error) + '</p>';
   h += '<p class="note">' + (Rz.order.length ? Rz.order.map(x => x.fin + "着 " + escH(x.num) + " " + escH(x.name) + (x.pop ? "（" + escH(x.pop) + "番人気）" : "")).join("<br>") : "着順を読めませんでした。") + '</p>';
   if (!Rz.pays.length) return h + '<p class="bad">払戻金の表を読めませんでした。</p>';
-  const groups=[];for(const f of forms(J.pops))groups.push([f.name+"（表示時の人気）",[{kind:f.kind,tickets:f.T}]]);for(const f of forms(Rz.pops))groups.push([f.name+"（確定人気・参考）",[{kind:f.kind,tickets:f.T}]]);
+  const groups=[];for(const f of forms(J.pops).filter(f=>f.T.length))groups.push([f.name+"（表示時の人気）",[{kind:f.kind,tickets:f.T}]]);for(const f of forms(Rz.pops).filter(f=>f.T.length))groups.push([f.name+"（確定人気・参考）",[{kind:f.kind,tickets:f.T}]]);
   if (!groups.length) return h + '<p class="note">このレースには的中を調べる買い方がありません。</p>';
   groups.forEach(([name, F]) => {
     h += '<p class="note" style="margin-bottom:2px"><b>' + escH(name) + '</b></p><div class="scroll"><table style="width:auto"><thead><tr><th class="l">券種</th><th style="text-align:center">点数</th><th class="l">結果</th><th style="text-align:right">払戻</th></tr></thead><tbody>';
