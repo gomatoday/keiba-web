@@ -28,7 +28,7 @@ tr.top td{background:var(--hi)}
 button.ghR.selected{background:var(--acc);color:white;font-weight:700}.formation{table-layout:fixed;width:100%;white-space:normal}.formation th,.formation td{padding:5px 3px;text-align:center;vertical-align:middle}.formation .kind{width:4.2em;text-align:left}.formation .check{width:1.8em}.formation .points{width:2.6em}.formation .nums{overflow-wrap:anywhere;word-break:normal}.formation input{width:17px;height:17px;accent-color:var(--acc);margin:0}.result-table tr.purchased td{background:#e4efff}.result-table tr.hit td{background:#ffe4e4}.result-table tr.purchased td:first-child{box-shadow:inset 4px 0 #2456c9;font-weight:700}.result-table tr.hit.purchased td:first-child{box-shadow:inset 4px 0 #2456c9}.result-table .hit-label{color:#b3261e;font-weight:700}@media(max-width:480px){main{padding:8px}section{padding:10px 8px}.formation{font-size:.78rem}.formation .kind{width:3.8em}.formation .check{width:1.5em}.formation .points{width:2.4em}}
 .g1stats{margin:1em 0 .4em}.g1stats summary{display:flex;align-items:center;gap:.5em;font-size:.95rem;font-weight:700;cursor:pointer;list-style:none;padding:.35em 0}.g1stats summary::-webkit-details-marker{display:none}.g1arrow{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:5px;min-width:28px;min-height:28px;color:var(--acc)}.g1arrow::before{content:"▼"}.g1stats[open] .g1arrow::before{content:"▲"}</style></head><body><main>
 <h1>市場人気だけのフォーメーション表</h1>
-<div class="note">market-form-1.8 (2026-11-27)　自分用・試し</div>
+<div class="note">market-form-1.9 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -384,7 +384,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 
 </script><script>
-const VERSION='market-form-1.8 (2026-11-27)';const RES=[];
+const VERSION='market-form-1.9 (2026-11-27)';const RES=[];
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -475,14 +475,18 @@ function resultHtml(J,rid){
   for(const x of Rz.pays){
     const first=!seen.has(x.kind), f=F.get(x.kind);
     const label=KN[x.kind]||x.kind, r=f&&f.T.length?hitOf(Rz,f.kind,f.T):null;
-    h+='<tr data-kind="'+escH(label)+'" class="'+(f&&f.T.length&&bought(rid,label)?'purchased ':'')+(r&&r.hit.length?'hit':'')+'"><td class="l">'+(first?escH(label):"")+'</td><td class="l">'+escH(x.combo)+'</td><td>'+(Number.isFinite(x.pay)?x.pay.toLocaleString()+"円":"")+'</td><td>'+escH(x.pop||"")+'</td>';
-    if(first){
+    const rowHit=!!(r&&(x.kind==="fuku"?r.hit.includes(ckey(x.kind,x.combo)):r.hit.length));
+    h+='<tr data-kind="'+escH(label)+'" class="'+(f&&f.T.length&&bought(rid,label)?'purchased ':'')+(rowHit?'hit':'')+'"><td class="l">'+(first?escH(label):"")+'</td><td class="l">'+escH(x.combo)+'</td><td>'+(Number.isFinite(x.pay)?x.pay.toLocaleString()+"円":"")+'</td><td>'+escH(x.pop||"")+'</td>';
+    if(x.kind==="fuku"){
+      h+='<td>'+(r&&r.sold?(rowHit?'<b class="hit-label">的中</b>':(r.hit.length?"":first?"不的中":"")):"-")+'</td>';
+      if(first)h+='<td rowspan="'+counts.get(x.kind)+'">'+(r&&r.sold?f.T.length:"-")+'</td>';
+    }else if(first){
       const cells=r&&r.sold?[r.hit.length?'<b class="hit-label">的中</b>':'不的中',f.T.length]:["-","-"];
       h+=cells.map(v=>'<td rowspan="'+counts.get(x.kind)+'">'+v+'</td>').join("");
     }
     seen.add(x.kind);h+='</tr>';
   }
-  h+='</tbody></table></div><p class="note">表示時の人気（枠券種は実枠番号）による買い目を照合。1点100円。結果・点数は券種ごとの集計。青は購入、薄赤は的中（購入済みは左端に青線）。買い目なしは「-」。</p>'+(Rz.memo?'<p class="note">備考: '+escH(Rz.memo)+'</p>':'');
+  h+='</tbody></table></div><p class="note">表示時の人気（枠券種は実枠番号）による買い目を照合。1点100円。結果・点数は券種ごとの集計（複勝の的中表示は組番ごと）。青は購入、薄赤は的中（購入済みは左端に青線）。買い目なしは「-」。</p>'+(Rz.memo?'<p class="note">備考: '+escH(Rz.memo)+'</p>':'');
   return h;
 }
 function raceHtml(J,rid){const I=J.info;return '<h2>'+escH((I.r_venue||"")+" "+I.r_rno+"R　"+I.r_surface+I.r_dist+"m・"+Object.keys(J.pops).length+"頭")+'<br><span class="rid">'+escH(rid+"　発走 "+I.r_post_time+"　"+I.r_title_raw)+'</span></h2><p class="note">oddsJS: 更新 '+escH(J.odds.update)+'（状態 '+escH(J.odds.status)+'）</p>'+popFormHtml(J.pops,J.odds,rid,J.frames)+resultHtml(J,rid);}
