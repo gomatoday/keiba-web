@@ -27,7 +27,7 @@ tr.top td{background:var(--hi)}
 .warn{border-left:4px solid var(--bad);padding:.3em .8em;background:#fff6f5;font-size:.85rem}
 </style></head><body><main>
 <h1>市場人気だけのフォーメーション表</h1>
-<div class="note">market-form-1.4 (2026-11-27)　自分用・試し</div>
+<div class="note">market-form-1.5 (2026-11-27)　自分用・試し</div>
 <section id="ghSec">
 <h2>GitHub から読む（締切前のショートカットで保存した組）</h2>
 <div class="row" id="ghDayRow" style="display:none;align-items:center"><label for="ghDay">日付</label><select id="ghDay" style="font:inherit;padding:4px 6px"></select></div>
@@ -383,7 +383,7 @@ return { cardRows, rowsCsv, HCOLS };
 })();
 
 </script><script>
-const VERSION='market-form-1.4 (2026-11-27)';const RES=[];
+const VERSION='market-form-1.5 (2026-11-27)';const RES=[];
 const $ = id => document.getElementById(id);
 const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const escC = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -460,23 +460,23 @@ function resultHtml(J){
   if (Rz.error) return h + '<p class="bad">結果のページを読めませんでした: ' + escH(Rz.error) + '</p>';
   h += '<p class="note">' + (Rz.order.length ? Rz.order.map(x => x.fin + "着 " + escH(x.num) + " " + escH(x.name) + (x.pop ? "（" + escH(x.pop) + "番人気）" : "")).join("<br>") : "着順を読めませんでした。") + '</p>';
   if (!Rz.pays.length) return h + '<p class="bad">払戻金の表を読めませんでした。</p>';
-  const groups=[];for(const f of forms(J.pops).filter(f=>f.T.length))groups.push([f.name+"（表示時の人気）",[{kind:f.kind,tickets:f.T}]]);for(const f of forms(Rz.pops).filter(f=>f.T.length))groups.push([f.name+"（確定人気・参考）",[{kind:f.kind,tickets:f.T}]]);
-  if (!groups.length) return h + '<p class="note">このレースには的中を調べる買い方がありません。</p>';
-  groups.forEach(([name, F]) => {
-    h += '<p class="note" style="margin-bottom:2px"><b>' + escH(name) + '</b></p><div class="scroll"><table style="width:auto"><thead><tr><th class="l">券種</th><th style="text-align:center">点数</th><th class="l">結果</th><th style="text-align:right">払戻</th></tr></thead><tbody>';
-    F.forEach(x => { const T = x.tickets || []; if (!T.length) return; const r = hitOf(Rz, x.kind, T);
-      const bt = "";
-      if (!r.sold){ h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">発売なし</td><td></td>' + bt + '</tr>'; return; }
-      h += '<tr><td class="l">' + x.kind + '</td><td style="text-align:center">' + T.length + '</td><td class="l">' + (r.hit.length ? '<b class="ok">的中</b>（' + r.hit.join("・") + '）' : '不的中') + '</td><td style="text-align:right">' + (r.hit.length ? r.pay.toLocaleString() + "円" : "") + '</td>' + bt + '</tr>'; });
-    h += '</tbody></table></div>';
-  });
-  h+='<p class="note">1点100円。表示時の買い目と確定人気で再構成した参考買い目を別々に照合。</p>';
-// 払戻金の表（結果のページのとおり）
-  const KN = { tan: "単勝", fuku: "複勝", wakuren: "枠連", wakutan: "枠単", umaren: "馬連", umatan: "馬単", wide: "ワイド", sanrenpuku: "三連複", sanrentan: "三連単" };
-  h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table style="width:auto;min-width:18em"><thead><tr><th class="l">券種</th><th class="l">組番</th><th style="text-align:right">払戻</th><th style="text-align:right">人気</th></tr></thead><tbody>';
-  let prevK = "";
-  Rz.pays.forEach(x => { h += '<tr><td class="l">' + (x.kind === prevK ? "" : escH(KN[x.kind] || x.kind)) + '</td><td class="l">' + escH(x.combo) + '</td><td style="text-align:right">' + (Number.isFinite(x.pay) ? x.pay.toLocaleString() + "円" : "") + '</td><td style="text-align:right">' + escH(x.pop || "") + '</td></tr>'; prevK = x.kind; });
-  h += '</tbody></table></div>' + (Rz.memo ? '<p class="note">備考: ' + escH(Rz.memo) + '</p>' : '');
+  const F = new Map(forms(J.pops).map(f=>[K2P[f.kind],f]));
+  const KN = { tan:"単勝", fuku:"複勝", wakuren:"枠連", wakutan:"枠単", umaren:"馬連", umatan:"馬単", wide:"ワイド", sanrenpuku:"三連複", sanrentan:"三連単" };
+  const counts = new Map();
+  for(const x of Rz.pays) counts.set(x.kind,(counts.get(x.kind)||0)+1);
+  const seen = new Set();
+  h += '<p class="note" style="margin-bottom:2px"><b>払戻金</b></p><div class="scroll"><table style="width:auto;min-width:18em"><thead><tr><th class="l">券種</th><th class="l">組番</th><th>払戻</th><th>人気</th><th>結果</th><th>点数</th><th>払戻金</th></tr></thead><tbody>';
+  for(const x of Rz.pays){
+    const first=!seen.has(x.kind), f=F.get(x.kind);
+    h+='<tr><td class="l">'+(first?escH(KN[x.kind]||x.kind):"")+'</td><td class="l">'+escH(x.combo)+'</td><td>'+(Number.isFinite(x.pay)?x.pay.toLocaleString()+"円":"")+'</td><td>'+escH(x.pop||"")+'</td>';
+    if(first){
+      const r=f&&f.T.length?hitOf(Rz,f.kind,f.T):null;
+      const cells=r&&r.sold?[r.hit.length?'<b class="ok">的中</b>':'不的中',f.T.length,r.pay.toLocaleString()+"円"]:["-","-","-"];
+      h+=cells.map(v=>'<td rowspan="'+counts.get(x.kind)+'">'+v+'</td>').join("");
+    }
+    seen.add(x.kind);h+='</tr>';
+  }
+  h+='</tbody></table></div><p class="note">表示時の人気による買い目を照合。1点100円。結果・点数・払戻金は券種ごとの合計。買い目なしは「-」。</p>'+(Rz.memo?'<p class="note">備考: '+escH(Rz.memo)+'</p>':'');
   return h;
 }
 function raceHtml(J,rid){const I=J.info;return '<h2>'+escH((I.r_venue||"")+" "+I.r_rno+"R　"+I.r_surface+I.r_dist+"m・"+Object.keys(J.pops).length+"頭")+'<br><span class="rid">'+escH(rid+"　発走 "+I.r_post_time+"　"+I.r_title_raw)+'</span></h2><p class="note">oddsJS: 更新 '+escH(J.odds.update)+'（状態 '+escH(J.odds.status)+'）</p>'+popFormHtml(J.pops,J.odds)+resultHtml(J);}
